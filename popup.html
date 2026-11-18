@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Firefox Translator</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <h1>Firefox Translator</h1>
+    <label for="provider">AI-провайдер</label>
+    <select id="provider">
+      <option value="gemini">Google Gemini</option>
+      <option value="deepseek">DeepSeek</option>
+      <option value="openai">OpenAI (ChatGPT API)</option>
+    </select>
+    <label for="apiKey">API-ключ</label>
+    <input id="apiKey" type="password" placeholder="Ключ выбранного провайдера" autocomplete="off">
+    <div class="inline"><button id="modelsLoad" type="button">Получить модели</button>
+      <select id="modelList" title="Доступные модели"><option value="">Список моделей</option></select></div>
+    <label for="model">Модель (можно указать ID вручную)</label>
+    <input id="model" type="text" spellcheck="false" placeholder="gemini-2.5-flash">
+    <details>
+      <summary>Дополнительно: NestJS API</summary>
+      <label class="checkbox"><input id="useBackend" type="checkbox"> Использовать свой NestJS-сервер</label>
+      <label for="backendUrl">Адрес сервера (HTTPS)</label>
+      <input id="backendUrl" type="url" placeholder="https://reader.example.com">
+      <p class="hint">По умолчанию запросы идут напрямую к AI-провайдеру. NestJS необязателен.</p>
+    </details>
+    <button id="save" type="button" class="primary">Сохранить настройки</button>
+    <hr>
+    <div class="inline"><button id="translate" type="button" class="primary">Перевести</button>
+      <button id="original" type="button">Оригинал</button></div>
+    <label for="length">Объём саммари</label>
+    <select id="length">
+      <option value="short">Кратко</option>
+      <option value="normal" selected>Стандартно</option>
+      <option value="detailed">Подробно</option>
+    </select>
+    <button id="summary" type="button">Сделать саммари</button>
+    <p id="status" role="status" aria-live="polite"></p>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>
