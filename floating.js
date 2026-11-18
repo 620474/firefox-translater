@@ -11,6 +11,9 @@
 
   const host = document.createElement("div");
   host.id = "aiar-floating-root";
+  host.style.cssText = "position:fixed!important;top:0!important;left:0!important;" +
+    "width:0!important;height:0!important;z-index:2147483647!important;" +
+    "pointer-events:none!important;";
   const shadow = host.attachShadow({ mode: "closed" });
   const style = document.createElement("style");
   style.textContent = [
@@ -19,14 +22,14 @@
     "border:2px solid #555;background:#fff;color:#111;box-shadow:0 1px 5px #5558;",
     "font-size:28px;font-weight:700;line-height:1;display:grid;place-items:center;",
     "user-select:none;-webkit-user-select:none;touch-action:none;cursor:pointer;",
-    "padding:0;transition:opacity 120ms;-webkit-tap-highlight-color:transparent}",
+    "padding:0;pointer-events:auto;transition:opacity 120ms;-webkit-tap-highlight-color:transparent}",
     ".launcher::after{content:'A';font:bold 12px Arial,sans-serif;position:absolute;",
     "right:7px;top:6px;padding:0 2px;background:#fff;color:#111}",
     ".launcher:hover,.launcher:active,.launcher:focus-visible,.launcher.busy{opacity:.95!important}",
     ".menu{position:fixed;width:min(310px,calc(100vw - 24px));",
     "max-height:calc(100vh - 24px);overflow-y:auto;overscroll-behavior:contain;",
     "background:#fff;color:#111;border:1px solid #777;border-radius:14px;",
-    "padding:14px;box-shadow:0 5px 22px #0005;font:15px/1.4 Arial,sans-serif}",
+    "padding:14px;pointer-events:auto;box-shadow:0 5px 22px #0005;font:15px/1.4 Arial,sans-serif}",
     ".menu[hidden],.toast[hidden]{display:none!important}",
     ".heading,.row,.summary{display:flex;align-items:center;justify-content:space-between;gap:8px}",
     ".heading{margin-bottom:8px}.heading strong{font-size:16px}",
