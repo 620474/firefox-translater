@@ -46,7 +46,7 @@
     const containsCode = Boolean(range.cloneContents().querySelector?.("pre,code,kbd,samp"));
     latestSelection = {
       selection: text,
-      context: (block?.textContent || text).trim().slice(0, 1800),
+      context: (block ? proseText(block) : text).trim().slice(0, 1800),
       title: document.title, url: location.href, timestamp: Date.now(),
       insideCode: containsCode || Boolean(parent.closest("pre,code,kbd,samp"))
     };
@@ -267,16 +267,19 @@
   }
   function originalText() {
     reconcileTranslations();
-    return sections().map(element => {
-      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-      let text = "", node;
-      while ((node = walker.nextNode())) {
-        if (node.parentElement?.closest("pre,code,kbd,samp,script,style,noscript")) continue;
-        text += node.nodeValue || "";
-      }
-      return text.trim();
-    }).filter(Boolean).join("\n\n").slice(0, 120000);
+    return sections().map(proseText).map(text => text.trim())
+      .filter(Boolean).join("\n\n").slice(0, 120000);
   }
+  function proseText(element) {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    let text = "", node;
+    while ((node = walker.nextNode())) {
+      if (node.parentElement?.closest("pre,code,kbd,samp,script,style,noscript")) continue;
+      text += node.nodeValue || "";
+    }
+    return text;
+  }
+
   async function showSummary(text) {
     if (!summaryHost?.isConnected) {
       summaryHost = document.createElement("div");

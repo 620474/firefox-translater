@@ -102,3 +102,49 @@ test("cached batch survives changed article-global paragraph IDs", async t => {
   assert.equal(f.calls.filter(x => x.type === "GENERATE").length, before);
   assert.ok(f.document.querySelector("#target + [data-aiar-translation]"));
 });
+
+test("selection translation excludes neighboring code from context", async t => {
+  const f = fixture('<article><p><span>Useful prose to translate</span><code>SECRET_CODE</code><kbd>SECRET_KEY</kbd><samp>SECRET_SAMPLE</samp></p></article>');
+  t.after(() => f.dom.window.close());
+  const range = f.document.createRange();
+  range.selectNodeContents(f.document.querySelector('span'));
+  f.dom.window.getSelection().addRange(range);
+  assert.equal((await f.send({ type: "SELECTION_ACTION", actionId: "translate" })).ok, true);
+  const prompt = f.calls.find(x => x.type === "GENERATE").prompt;
+  assert.ok(prompt.includes("Useful prose to translate"));
+  for (const secret of ["SECRET_CODE", "SECRET_KEY", "SECRET_SAMPLE"]) assert.equal(prompt.includes(secret), false);
+});
+
+test("floating menu restores original during a pending translation without reporting stale success", async t => {
+  const dom = new JSDOM('<article>Article</article>', { url: 'https://example.com', runScripts: 'outside-only', pretendToBeVisual: true });
+  t.after(() => dom.window.close());
+  const gate = deferred();
+  let shadow;
+  const attach = dom.window.Element.prototype.attachShadow;
+  dom.window.Element.prototype.attachShadow = function(options) { shadow = attach.call(this, options); return shadow; };
+  const calls = [];
+  dom.window.browser = {
+    storage: { local: { get: async () => ({}), set: async () => {} } },
+    runtime: { onMessage: { addListener() {} }, async sendMessage(message) {
+      calls.push(message);
+      if (message.type === 'TAB_ACTION' && message.operation === 'TRANSLATE') await gate.promise;
+      return { ok: true };
+    } }
+  };
+  dom.window.eval(await readFile('floating.js', 'utf8'));
+  const launcher = shadow.querySelector('.launcher');
+  launcher.click();
+  await tick();
+  launcher.click();
+  await tick();
+  assert.equal(shadow.querySelector('.menu').hidden, false);
+  const original = [...shadow.querySelectorAll('button')].find(b => b.textContent === 'Оригинал');
+  original.click();
+  await tick();
+  assert.ok(calls.some(x => x.operation === 'ORIGINAL'));
+  assert.equal(shadow.querySelector('.toast').textContent, 'Оригинал восстановлен');
+  gate.resolve();
+  await tick();
+  assert.equal(shadow.querySelector('.toast').textContent, 'Оригинал восстановлен');
+  assert.equal(launcher.classList.contains('busy'), false);
+});
