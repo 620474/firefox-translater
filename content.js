@@ -46,13 +46,15 @@
     if (!parent?.closest || parent.closest("input,textarea,[contenteditable=true]")) return;
     if (!articleRoot().contains(parent)) return;
     const block = parent.closest(BLOCKS);
+    const range = selection.getRangeAt(0);
+    const containsCode = Boolean(range.cloneContents().querySelector?.("pre,code,kbd,samp"));
     latestSelection = {
       selection: text,
       context: (block?.textContent || text).trim().slice(0, 1800),
       title: document.title,
       url: location.href,
       timestamp: Date.now(),
-      insideCode: Boolean(parent.closest("pre,code,kbd,samp"))
+      insideCode: containsCode || Boolean(parent.closest("pre,code,kbd,samp"))
     };
   }
   document.addEventListener("selectionchange", captureSelection);
