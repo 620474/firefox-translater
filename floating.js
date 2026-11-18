@@ -8,6 +8,7 @@
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
   let prefs = { ...DEFAULTS }, busy = false, menuOpen = false;
   let gesture = null, holdTimer = null, toastTimer = null;
+  let operationGeneration = 0;
 
   const host = document.createElement("div");
   host.id = "aiar-floating-root";
@@ -135,18 +136,28 @@
     return node;
   }
   async function run(operation, options = {}) {
+    if (busy && operation === "ORIGINAL") {
+      closeMenu();
+      operationGeneration++;
+      try {
+        await send("TAB_ACTION", { operation, options });
+        notify("Оригинал восстановлен");
+      } catch (error) { notify("Ошибка: " + (error.message || error)); }
+      return;
+    }
     if (busy) { notify("Дождитесь завершения текущей операции"); return; }
+    const generation = ++operationGeneration;
     closeMenu();
     busy = true;
     button.classList.add("busy");
     button.textContent = "⋯";
     try {
       await send("TAB_ACTION", { operation, options });
-      notify(operation === "TRANSLATE" ? "Перевод готов" :
+      if (generation === operationGeneration) notify(operation === "TRANSLATE" ? "Перевод готов" :
         operation === "ORIGINAL" ? "Оригинал восстановлен" :
         operation === "SELECTION_ACTION" ? "Анализ выделения готов" : "Саммари открыто");
     } catch (error) {
-      notify("Ошибка: " + (error.message || error));
+      if (generation === operationGeneration) notify("Ошибка: " + (error.message || error));
     } finally {
       busy = false;
       button.classList.remove("busy");
@@ -157,7 +168,6 @@
     }
   }
   async function openMenu() {
-    if (busy) return notify("Дождитесь завершения перевода");
     closeMenu();
     menuOpen = true;
     menu.hidden = false;
@@ -258,7 +268,7 @@
   function cancelHold() { clearTimeout(holdTimer); holdTimer = null; }
   button.addEventListener("contextmenu", event => event.preventDefault());
   button.addEventListener("pointerdown", event => {
-    if (event.button !== 0 || busy) return;
+    if (event.button !== 0) return;
     event.preventDefault();
     gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
     button.setPointerCapture?.(event.pointerId);
@@ -300,7 +310,7 @@
   button.addEventListener("lostpointercapture", cancelHold);
   // Keyboard accessibility: native click without a pointer event.
   button.addEventListener("click", event => {
-    if (event.detail === 0) menuOpen ? closeMenu() : run("TRANSLATE");
+    if (event.detail === 0) menuOpen ? closeMenu() : busy ? openMenu() : run("TRANSLATE");
   });
   browser.runtime.onMessage.addListener(message => {
     if (message?.type !== "UI_PROGRESS" || !busy) return undefined;
