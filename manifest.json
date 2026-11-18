@@ -28,6 +28,7 @@
         "https://*/*"
       ],
       "js": [
+        "reader-core.js",
         "content.js",
         "floating.js"
       ],
