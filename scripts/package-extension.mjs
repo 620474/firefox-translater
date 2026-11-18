@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile, copyFile, rm } from "node:fs/promises";
-import { execFileSync } from "node:child_process";
+import { writeZip } from "./archive.mjs";
 import { resolve } from "node:path";
 
 const version = process.argv[2] || "0.1.0";
@@ -18,5 +18,5 @@ for (const name of names.filter(name => name !== "manifest.json")) {
 }
 const archive = resolve(output, "firefox-translator-v" + version + ".zip");
 await rm(archive, { force: true });
-execFileSync("zip", ["-q", "-r", archive, ...names], { cwd: source, stdio: "inherit" });
+await writeZip(archive, await Promise.all(names.map(async name => [name, await readFile(resolve(source, name))])));
 console.log("Built extension source archive: " + archive);

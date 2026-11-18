@@ -1,4 +1,29 @@
-# Firefox Translator
+# AI Article Reader
+
+Три отдельных пакета с общей версией релиза. EinkBro — основная платформа.
+
+| Платформа | Пакет | Установка |
+|---|---|---|
+| EinkBro | `ai-article-reader-einkbro-vX.Y.Z.user.js` | Импорт в менеджере Userscripts |
+| Firefox Android / ПК | Подписанный `.xpi` | Установка дополнения Firefox |
+| KOReader | `ai-article-reader-koreader-vX.Y.Z.koplugin.zip` | Распаковать в каталог `plugins`, перезапустить |
+
+Инструкции: [EinkBro](platforms/einkbro/README.md), [KOReader](platforms/koreader/README.md).
+EinkBro требует актуального механизма GM userscripts: вставка файла в Post-load JS не подходит.
+EinkBro и Firefox поддерживают перевод веб-страницы, оригинал, саммари, действия над выделением
+и заметки. KOReader работает с выделением книги: перевод, объяснение, термин, тезисы, свой
+промпт, заметки. Он не подменяет текст всей книги. Первые версии новых клиентов требуют
+проверки на устройствах; автоматические проверки используют DOM и имитацию платформенных API.
+
+Общие браузерные исходники собираются в EinkBro автоматически. Промпты пяти действий
+генерируются для KOReader из `reader-actions.js`. NestJS gateway общий и необязательный
+для всех трёх платформ; прямые запросы к Gemini, DeepSeek и OpenAI доступны в каждом клиенте.
+
+Все пакеты: `npm run package:all -- 1.4.0`. Только EinkBro и KOReader:
+`npm run package:platforms -- 1.4.0`. ZIP Firefox содержит исходники; установочный XPI
+создаётся в CI при настроенных ключах Mozilla. Сборка не требует системной команды `zip`.
+
+## Firefox
 
 Расширение Firefox для Android и ПК: AI-перевод статей на русский, подмена оригинального текста, суммаризация. Поддерживает Medium через обычную авторизованную сессию и другие веб-страницы.
 
@@ -15,6 +40,8 @@
 - manifest.json, background.js, content.js, popup.* — Firefox WebExtension (Manifest V2).
 - apps/api — NestJS 11 API gateway, который **не запускается внутри Firefox**.
 - scripts/ — упаковка расширения и опциональная подпись Mozilla.
+- platforms/einkbro — адаптер GM API и инструкция установки userscript.
+- platforms/koreader — Lua-плагин, транспорт AI и инструкция установки.
 - .github/workflows/release.yml — GitHub Actions + semantic-release.
 
 ## Разработка
@@ -54,7 +81,9 @@ CORS_ORIGINS — необязательный список разрешённы�
 - feat!: ... или BREAKING CHANGE: — major
 - docs: / chore: без функциональных изменений не создают релиз
 
-При успешной сборке публикуются GitHub Release, git-тег vX.Y.Z, release notes и ZIP с исходниками расширения. npm publish выключен.
+При успешной сборке публикуются GitHub Release, git-тег vX.Y.Z, release notes, userscript EinkBro,
+архив плагина KOReader и ZIP с исходниками Firefox. При настроенной подписи Mozilla также
+публикуется XPI. npm publish выключен.
 
 Для **подписанного XPI** настройте addons.mozilla.org API credentials в GitHub Actions Secrets:
 - AMO_JWT_ISSUER

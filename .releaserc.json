@@ -9,7 +9,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "node scripts/package-extension.mjs ${nextRelease.version} && node scripts/sign-extension.mjs"
+        "prepareCmd": "node scripts/package-all.mjs ${nextRelease.version} && node scripts/sign-extension.mjs"
       }
     ],
     [
@@ -23,6 +23,14 @@
           {
             "path": "dist/*.xpi",
             "label": "Firefox Translator — подписанное Mozilla расширение"
+          },
+          {
+            "path": "dist/*.user.js",
+            "label": "AI Article Reader - EinkBro userscript"
+          },
+          {
+            "path": "dist/*.koplugin.zip",
+            "label": "AI Article Reader - KOReader plugin"
           }
         ]
       }
