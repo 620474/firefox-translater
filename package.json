@@ -1,0 +1,25 @@
+{
+  "name": "firefox-translator",
+  "version": "0.0.0-development",
+  "private": true,
+  "description": "AI article translator and summarizer: Firefox extension + optional NestJS API",
+  "workspaces": ["apps/api"],
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "check": "node --check background.js && node --check content.js && node --check popup.js && node --test tests/*.test.mjs",
+    "build:api": "tsc -p apps/api/tsconfig.json",
+    "start:api": "node dist/api/main.js",
+    "package:extension": "node scripts/package-extension.mjs",
+    "release": "semantic-release"
+  },
+  "devDependencies": {
+    "@semantic-release/commit-analyzer": "^13.0.0",
+    "@semantic-release/exec": "^7.0.0",
+    "@semantic-release/github": "^11.0.0",
+    "@semantic-release/release-notes-generator": "^14.0.0",
+    "@types/node": "^22.0.0",
+    "semantic-release": "^24.0.0",
+    "typescript": "^5.8.0",
+    "web-ext": "^8.0.0"
+  }
+}
