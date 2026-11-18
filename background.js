@@ -143,6 +143,32 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
       case "MODELS":
         if (sender.tab) throw Error("Доступ запрещён");
         return { ok: true, models: await models() };
+      case "PUBLIC_SETTINGS": {
+        if (!sender.tab || sender.frameId !== 0) throw Error("Доступ запрещён");
+        const current = await settings();
+        return {
+          ok: true,
+          provider: current.provider,
+          model: current.models[current.provider] || ""
+        };
+      }
+      case "OPEN_SETTINGS": {
+        if (!sender.tab || sender.frameId !== 0) throw Error("Доступ запрещён");
+        await browser.tabs.create({ url: browser.runtime.getURL("popup.html"), active: true });
+        return { ok: true };
+      }
+      case "TAB_ACTION": {
+        if (!sender.tab || sender.frameId !== 0) throw Error("Доступ запрещён");
+        const operation = message.operation;
+        if (!["TRANSLATE", "ORIGINAL", "SUMMARY"].includes(operation)) {
+          throw Error("Неизвестная команда");
+        }
+        const choice = message.options?.length;
+        const length = ["short", "normal", "detailed"].includes(choice) ? choice : "normal";
+        return await browser.tabs.sendMessage(
+          sender.tab.id, { type: operation, length }, { frameId: 0 }
+        );
+      }
       case "SIGNATURE": {
         const s = await settings();
         return { ok: true, value: s.provider + "/" + s.models[s.provider] };
