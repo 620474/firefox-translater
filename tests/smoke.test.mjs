@@ -36,3 +36,15 @@ test("Floating controls are included in signed package and use the background ga
   assert.match(overlay, /aiarFloatingPrefs/);
   assert.match(overlay, /mode|eink/i);
 });
+
+test("Mozilla data collection declaration matches API transmissions", async () => {
+  const manifest = JSON.parse(await readFile("manifest.json", "utf8"));
+  const settings = manifest.browser_specific_settings;
+  assert.deepEqual(
+    settings.gecko.data_collection_permissions.required,
+    ["websiteContent", "authenticationInfo"]
+  );
+  assert.equal(settings.gecko.strict_min_version, "140.0");
+  assert.equal(settings.gecko_android.strict_min_version, "142.0");
+  assert.equal(manifest.browser_action.default_title, "AI Article Reader");
+});
