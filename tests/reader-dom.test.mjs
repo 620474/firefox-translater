@@ -39,7 +39,9 @@ function browserFixture(html) {
               id: item.id,
               text: item.text.includes("powerful")
                 ? "Это ⟦AIAR:0⟧мощная⟦/AIAR:0⟧ модель."
-                : "Смотри ⟦AIAR:0⟧документацию⟦/AIAR:0⟧ для подробностей."
+                : item.text.includes("Choose")
+                  ? "Используйте ⟦AIAR:0⟧⟦/AIAR:0⟧ в приложении."
+                  : "Смотри ⟦AIAR:0⟧документацию⟦/AIAR:0⟧ для подробностей."
             }))
           }) };
         }
@@ -86,5 +88,37 @@ test("nested quote paragraphs are translated separately and not merged", async (
   );
   assert.equal((await getHandler()({ type: "TRANSLATE" })).ok, true);
   assert.equal(document.querySelectorAll("[data-aiar-translation]").length, 2);
+  dom.window.close();
+});
+
+test("preserves code blocks and inline code exactly, and never sends their source to AI", async () => {
+  const inline = 'const result = await fetch("https://api.example/");';
+  const codeOnly = 'const token = "do not change";';
+  const block = 'function greet() {\n  return "Hello!";\n}';
+  const html =
+    '<main><article>' +
+    '<p id="inline">Choose <code class="language-js">' + inline + '</code> in your application today.</p>' +
+    '<p id="only-code"><code>' + codeOnly + '</code></p>' +
+    '<pre><code id="block-code">' + block + '</code></pre>' +
+    '</article></main>';
+  const { document, calls, getHandler, dom } = browserFixture(html);
+  const inlineCode = document.querySelector("#inline code");
+  const originalBlock = document.getElementById("block-code");
+  assert.equal((await getHandler()({ type: "TRANSLATE" })).ok, true);
+  const translation = document.querySelector("#inline + [data-aiar-translation]");
+  assert.ok(translation);
+  assert.equal(translation.querySelector("code").textContent, inline);
+  assert.equal(translation.querySelector("code").className, "language-js");
+  assert.equal(document.querySelector("#only-code").nextElementSibling?.dataset.aiarTranslation, undefined);
+  assert.equal(originalBlock.textContent, block);
+  assert.equal(document.querySelector("#inline code"), inlineCode);
+  const translatedPrompts = calls.filter(call => call.type === "GENERATE").map(call => call.prompt).join("\n");
+  assert.ok(translatedPrompts.includes("Choose"));
+  assert.equal(translatedPrompts.includes(inline), false);
+  assert.equal(translatedPrompts.includes(codeOnly), false);
+  assert.equal(translatedPrompts.includes(block), false);
+  assert.equal((await getHandler()({ type: "ORIGINAL" })).ok, true);
+  assert.equal(document.querySelector("#inline code").textContent, inline);
+  assert.equal(originalBlock.textContent, block);
   dom.window.close();
 });
