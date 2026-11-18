@@ -2,7 +2,7 @@
   "name": "firefox-translator",
   "version": "0.0.0-development",
   "private": true,
-  "description": "AI article translator and summarizer: Firefox extension + optional NestJS API",
+  "description": "AI Article Reader: EinkBro, Firefox and KOReader clients with optional NestJS gateway",
   "workspaces": [
     "apps/api"
   ],
@@ -14,7 +14,9 @@
     "build:api": "tsc -p apps/api/tsconfig.json",
     "start:api": "node dist/api/main.js",
     "package:extension": "node scripts/package-extension.mjs",
-    "release": "semantic-release"
+    "release": "semantic-release",
+    "package:platforms": "node scripts/package-platforms.mjs",
+    "package:all": "node scripts/package-all.mjs"
   },
   "devDependencies": {
     "@semantic-release/commit-analyzer": "^13.0.0",
@@ -22,9 +24,11 @@
     "@semantic-release/github": "^11.0.0",
     "@semantic-release/release-notes-generator": "^14.0.0",
     "@types/node": "^22.0.0",
+    "fengari": "^0.1.5",
+    "jsdom": "^26.1.0",
+    "luaparse": "^0.3.1",
     "semantic-release": "^24.0.0",
     "typescript": "^5.8.0",
-    "web-ext": "^8.0.0",
-    "jsdom": "^26.1.0"
+    "web-ext": "^8.0.0"
   }
 }

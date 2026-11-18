@@ -1,5 +1,16 @@
 # Privacy notice — AI Article Reader
 
+## EinkBro and KOReader
+
+EinkBro stores API keys, settings, cache and notes in userscript GM storage, not website
+localStorage. Its userscript execution environment provides weaker isolation than a Firefox
+extension; use trusted websites and a separate provider key. `@connect *` supports a
+user-configured HTTPS gateway. Text is sent only when you request an AI action.
+
+KOReader stores API keys and notes in its local settings in plaintext. After an action and
+confirmation, it sends the selected book excerpt and book filename to the selected provider
+or user-configured HTTPS gateway. Notes stay local. Client stores are not synchronized.
+
 AI Article Reader is a bring-your-own-key (BYOK) browser extension.
 This notice explains data handling for both direct API and optional NestJS operation.
 
