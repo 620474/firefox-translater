@@ -1,0 +1,36 @@
+{
+  "manifest_version": 2,
+  "name": "Firefox Translator",
+  "version": "0.1.0",
+  "description": "Перевод статей и суммаризация через собственные API Gemini, DeepSeek и OpenAI.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "tabs",
+    "unlimitedStorage",
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": true
+  },
+  "browser_action": {
+    "default_title": "Firefox Translator",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "firefox-translator@620474.local",
+      "strict_min_version": "115.0"
+    },
+    "gecko_android": {}
+  }
+}
