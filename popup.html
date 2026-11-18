@@ -28,7 +28,12 @@
       <input id="backendUrl" type="url" placeholder="https://reader.example.com">
       <p class="hint">По умолчанию запросы идут напрямую к AI-провайдеру. NestJS необязателен.</p>
     </details>
+    <label for="customPrompt">Мой промпт для выделенного текста</label>
+    <textarea id="customPrompt" rows="4" maxlength="1600"
+      placeholder="Например: объясни, как это применяется в React/TypeScript"></textarea>
+    <p class="hint">Используется действием «Мой промпт». Текст выделения и его контекст передаются отдельно.</p>
     <button id="save" type="button" class="primary">Сохранить настройки</button>
+    <button id="notesOpen" type="button">Мои заметки</button>
     <button id="clearCache" type="button">Очистить кэш переводов</button>
     <hr>
     <div class="inline"><button id="translate" type="button" class="primary">Перевести</button>
@@ -42,6 +47,7 @@
     <button id="summary" type="button">Сделать саммари</button>
     <p id="status" role="status" aria-live="polite"></p>
   </main>
+  <script src="reader-actions.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
