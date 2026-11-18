@@ -190,40 +190,95 @@ async function models() {
     .filter(id => provider === "deepseek" || /^(gpt-|o[1-9]|chatgpt-)/i.test(id)).sort();
 }
 
+// Cache v3: one storage key per translation, a small metadata index, and zero
+// storage writes on CACHE_GET (including misses). The v2 object is read-only
+// during migration so that existing translations are not lost on upgrade.
+const CACHE_PREFIX = "aiar-cache-v3:";
+const CACHE_INDEX_KEY = "aiar-cache-index-v3";
+const CACHE_TTL_MS = 30 * 86400000;
+const CACHE_MAX_ENTRIES = 250;
+const CACHE_MAX_BYTES = 2500000;
+const cacheRecentReads = new Map();
+let legacyCacheLoad = null;
+
+function cacheStorageKey(key) {
+  return CACHE_PREFIX + key;
+}
+function validCacheEntry(item, now) {
+  return item && typeof item.text === "string" &&
+    typeof item.timestamp === "number" &&
+    item.timestamp <= now && now - item.timestamp < CACHE_TTL_MS;
+}
+function recordCacheAccess(key, timestamp) {
+  cacheRecentReads.delete(key);
+  cacheRecentReads.set(key, timestamp);
+  if (cacheRecentReads.size > CACHE_MAX_ENTRIES) {
+    cacheRecentReads.delete(cacheRecentReads.keys().next().value);
+  }
+}
 async function getCache(key) {
-  return withCache(async () => {
-    const stored = (await browser.storage.local.get("translationCacheV2")).translationCacheV2 || {};
-    const entries = pruneCache(stored);
-    const item = entries[key];
-    if (item) item.access = Date.now();
-    await browser.storage.local.set({ translationCacheV2: entries });
-    return item?.text || null;
-  });
+  const now = Date.now();
+  const storageKey = cacheStorageKey(key);
+  const data = await browser.storage.local.get(storageKey);
+  const entry = data[storageKey];
+  if (validCacheEntry(entry, now)) {
+    recordCacheAccess(key, now);
+    return entry.text;
+  }
+  // Existing v2 entries stay readable; fetched just once per background lifetime.
+  // No migration writes are triggered by reading or missing a cached translation.
+  if (!legacyCacheLoad) {
+    legacyCacheLoad = browser.storage.local.get("translationCacheV2")
+      .then(saved => saved.translationCacheV2 || {})
+      .catch(() => ({}));
+  }
+  const legacy = (await legacyCacheLoad)[key];
+  return validCacheEntry(legacy, now) ? legacy.text : null;
 }
 async function setCache(key, text) {
   return withCache(async () => {
-    const stored = (await browser.storage.local.get("translationCacheV2")).translationCacheV2 || {};
-    const time = Date.now();
-    stored[key] = { text, timestamp: time, access: time };
-    await browser.storage.local.set({ translationCacheV2: pruneCache(stored) });
+    const now = Date.now();
+    const saved = await browser.storage.local.get(CACHE_INDEX_KEY);
+    const previous = saved[CACHE_INDEX_KEY] || {};
+    const candidates = {};
+    for (const [cacheKey, entry] of Object.entries(previous)) {
+      if (!entry || typeof entry.timestamp !== "number" ||
+          !Number.isFinite(entry.bytes) || entry.bytes < 0 ||
+          entry.timestamp > now || now - entry.timestamp >= CACHE_TTL_MS) continue;
+      candidates[cacheKey] = {
+        timestamp: entry.timestamp,
+        access: cacheRecentReads.get(cacheKey) || entry.access || entry.timestamp,
+        bytes: entry.bytes
+      };
+    }
+    const bytes = 2 * (key.length + text.length);
+    candidates[key] = { timestamp: now, access: now, bytes };
+    // Evict least recently accessed values only when there is a NEW translation.
+    // No full-size translation payloads are serialized to update access times.
+    const sorted = Object.entries(candidates)
+      .sort((a, b) => b[1].access - a[1].access);
+    const next = {};
+    let count = 0, totalBytes = 0;
+    for (const [cacheKey, entry] of sorted) {
+      if (count >= CACHE_MAX_ENTRIES || totalBytes + entry.bytes > CACHE_MAX_BYTES) continue;
+      next[cacheKey] = entry;
+      count++;
+      totalBytes += entry.bytes;
+    }
+    const removed = Object.keys(previous).filter(cacheKey =>
+      !Object.prototype.hasOwnProperty.call(next, cacheKey));
+    if (!Object.prototype.hasOwnProperty.call(next, key)) {
+      throw Error("Translation exceeds cache size limit");
+    }
+    await browser.storage.local.set({
+      [cacheStorageKey(key)]: { text, timestamp: now },
+      [CACHE_INDEX_KEY]: next
+    });
+    if (removed.length) {
+      await browser.storage.local.remove(removed.map(cacheStorageKey));
+    }
+    cacheRecentReads.clear();
   });
-}
-function pruneCache(entries) {
-  const now = Date.now(), ttl = 30 * 86400000;
-  const valid = Object.entries(entries).filter(([, value]) =>
-    value && typeof value.text === "string" && typeof value.timestamp === "number" &&
-    value.timestamp <= now && now - value.timestamp < ttl
-  ).sort((a, b) => (b[1].access || b[1].timestamp) - (a[1].access || a[1].timestamp));
-  let count = 0, bytes = 0;
-  const trimmed = {};
-  for (const [key, value] of valid) {
-    const size = 2 * (key.length + value.text.length);
-    if (count >= 250 || bytes + size > 2500000) continue;
-    trimmed[key] = value;
-    count++;
-    bytes += size;
-  }
-  return trimmed;
 }
 
 browser.runtime.onMessage.addListener(async (message, sender) => {
@@ -348,10 +403,14 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
       case "CACHE_CLEAR":
         if (!isSettingsPage(sender)) throw Error("Недопустимый запрос");
         await withCache(async () => {
-          await browser.storage.local.remove("translationCacheV2");
           const old = await browser.storage.local.get(null);
-          const legacy = Object.keys(old).filter(key => key.startsWith("cache:"));
-          if (legacy.length) await browser.storage.local.remove(legacy);
+          const cacheKeys = Object.keys(old).filter(key =>
+            key.startsWith("cache:") || key.startsWith(CACHE_PREFIX) ||
+            key === CACHE_INDEX_KEY || key === "translationCacheV2"
+          );
+          if (cacheKeys.length) await browser.storage.local.remove(cacheKeys);
+          cacheRecentReads.clear();
+          legacyCacheLoad = null;
         });
         return { ok: true };
       default:
