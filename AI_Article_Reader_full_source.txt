@@ -1,0 +1,365 @@
+AI ARTICLE READER — FULL PROJECT SOURCE SNAPSHOT
+Repo: https://github.com/620474/firefox-translater
+Snapshot commit: 77dafea87c94f14663a9174c205fe851fc7c0d7b
+Snapshot date: 2026-11-18
+All 23 tracked source / config / documentation files
+No git metadata or live secrets included
+
+TABLE OF CONTENTS
+ - .env.example
+ - .github/workflows/release.yml
+ - .gitignore
+ - .releaserc.json
+ - PRIVACY.md
+ - README.md
+ - apps/api/package.json
+ - apps/api/src/controller.ts
+ - apps/api/src/main.ts
+ - apps/api/src/module.ts
+ - apps/api/src/service.ts
+ - apps/api/tsconfig.json
+ - background.js
+ - content.js
+ - floating.js
+ - manifest.json
+ - package.json
+ - popup.css
+ - popup.html
+ - popup.js
+ - scripts/package-extension.mjs
+ - scripts/sign-extension.mjs
+ - tests/smoke.test.mjs
+
+======================================================================
+BEGIN FILE: .env.example
+======================================================================
+PORT=3000
+# Optional comma-separated CORS origins (otherwise any origin).
+# CORS_ORIGINS=https://reader.example.com
+======================================================================
+END FILE: .env.example
+======================================================================
+
+======================================================================
+BEGIN FILE: .github/workflows/release.yml
+======================================================================
+name: CI and Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: semantic-release-main
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Check extension and tests
+        run: npm run check
+
+      - name: Compile NestJS API
+        run: npm run build:api
+
+      - name: Semantic Release
+        run: npm run release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+======================================================================
+END FILE: .github/workflows/release.yml
+======================================================================
+
+======================================================================
+BEGIN FILE: .gitignore
+======================================================================
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.xpi
+*.zip
+.DS_Store
+======================================================================
+END FILE: .gitignore
+======================================================================
+
+======================================================================
+BEGIN FILE: .releaserc.json
+======================================================================
+{
+  "branches": [
+    "main"
+  ],
+  "tagFormat": "v${version}",
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "node scripts/package-extension.mjs ${nextRelease.version} && node scripts/sign-extension.mjs"
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "assets": [
+          {
+            "path": "dist/firefox-translator-v*.zip",
+            "label": "Firefox Translator — исходный ZIP (не подписан Mozilla)"
+          },
+          {
+            "path": "dist/*.xpi",
+            "label": "Firefox Translator — подписанное Mozilla расширение"
+          }
+        ]
+      }
+    ]
+  ]
+}
+======================================================================
+END FILE: .releaserc.json
+======================================================================
+
+======================================================================
+BEGIN FILE: PRIVACY.md
+======================================================================
+# Privacy notice — AI Article Reader
+
+AI Article Reader is a bring-your-own-key (BYOK) browser extension.
+This notice explains data handling for both direct API and optional NestJS operation.
+
+## Information transmitted
+
+- **Website content:** when you choose Translate or Summarize, the extension
+  sends relevant article text to the AI provider selected in settings: Google
+  Gemini, DeepSeek, or OpenAI. Translation results are returned and displayed in
+  the current page. A short excerpt context may be included to preserve meaning.
+- **Authentication information:** the API key you enter for the selected AI
+  provider is sent to that provider for authentication. If you explicitly enable
+  the optional self-hosted NestJS gateway, the key and article content first pass
+  through that gateway and then on to the provider.
+- **No analytics or telemetry:** the extension code does not send analytics,
+  crash reporting, or usage tracking to its developer. The developer has no
+  dedicated account system or built-in logging service.
+
+## Local storage
+
+API keys, model choices, display preferences, and cached translations are stored
+locally in the browser's extension storage. The extension does not sync this
+information to a developer-operated backend. Browser extension storage is **not
+an encrypted secrets vault**.
+
+## When data is transmitted
+
+Merely loading a webpage does not send its article to an AI API. Content is
+transmitted after the user starts a translation or summarization. The optional
+"Get models" button transmits the relevant API key to retrieve available models.
+The extension can read website content on websites where it is enabled, and
+only sends article text to the selected AI provider on a user action.
+
+## Third-party processing
+
+The AI provider's own service terms, privacy practices, retention and usage
+rules apply to requests submitted using your API key. Do not process sensitive
+content unless you are comfortable sending it to that provider.
+
+## Data deletion
+
+You can delete stored API keys from extension settings and remove cached data by
+uninstalling the extension and clearing its local storage. Uninstalling does not
+delete information already processed by an external AI provider.
+
+## Contact / repository
+
+Source and issue tracker:
+https://github.com/620474/firefox-translater
+======================================================================
+END FILE: PRIVACY.md
+======================================================================
+
+======================================================================
+BEGIN FILE: README.md
+======================================================================
+# Firefox Translator
+
+Расширение Firefox для Android и ПК: AI-перевод статей на русский, подмена оригинального текста, суммаризация. Поддерживает Medium через обычную авторизованную сессию и другие веб-страницы.
+
+## Возможности
+
+- Собственные ключи Gemini, DeepSeek и OpenAI; выбор модели из API или ручной ввод ID.
+- Перевод текстовых узлов без разрушения HTML-разметки и блоков кода, восстановление оригинала, локальный кэш.
+- Суммаризация в трёх форматах, длинные статьи обрабатываются частями.
+- Контрастный интерфейс для Android / E-Ink.
+- Прямые запросы к AI-провайдеру **без сервера** (по умолчанию) либо необязательный NestJS gateway.
+
+## Структура
+
+- manifest.json, background.js, content.js, popup.* — Firefox WebExtension (Manifest V2).
+- apps/api — NestJS 11 API gateway, который **не запускается внутри Firefox**.
+- scripts/ — упаковка расширения и опциональная подпись Mozilla.
+- .github/workflows/release.yml — GitHub Actions + semantic-release.
+
+## Разработка
+
+Node.js 22+:
+
+    npm install
+    npm run check
+    npm run build:api
+
+На desktop Firefox: about:debugging → This Firefox → Load Temporary Add-on → manifest.json.
+
+На Android обычная установка требует **подписанного Mozilla .xpi**. Неподписанный ZIP из GitHub Releases служит исходным архивом и не заменяет подпись.
+
+### Подключение AI
+
+В панели укажите провайдера, API-ключ и модель, сохраните настройки, откройте Medium в авторизованной вкладке и нажмите Перевести или Сделать саммари. Подписка ChatGPT Plus не включает OpenAI API. Бесплатные квоты Gemini API зависят от проекта и модели.
+
+### Необязательный NestJS сервер
+
+    npm install
+    npm run build:api
+    PORT=3000 npm run start:api
+
+Маршруты: GET /api/health, GET /api/models?provider=gemini, POST /api/generate.
+
+Ключ передаётся заголовком X-Provider-Api-Key при каждом запросе, сервер его не сохраняет. Для доступа с телефона/читалки используйте HTTPS и reverse proxy. В настройках расширения выберите режим NestJS и укажите URL. HTTP разрешён только для localhost.
+
+CORS_ORIGINS — необязательный список разрешённых origins через запятую. Для публичного VPS дополнительно рекомендуются rate limiting и авторизация на gateway.
+
+## Автоматические релизы
+
+На каждый push в main GitHub Actions запускает тесты, компилирует NestJS, затем semantic-release. Conventional Commits:
+
+- fix: ... — patch
+- feat: ... — minor
+- feat!: ... или BREAKING CHANGE: — major
+- docs: / chore: без функциональных изменений не создают релиз
+
+При успешной сборке публикуются GitHub Release, git-тег vX.Y.Z, release notes и ZIP с исходниками расширения. npm publish выключен.
+
+Для **подписанного XPI** настройте addons.mozilla.org API credentials в GitHub Actions Secrets:
+- AMO_JWT_ISSUER
+- AMO_JWT_SECRET
+
+Тогда команда web-ext sign --channel=unlisted запросит подпись Mozilla, и подписанный XPI прикрепится к GitHub Release. Без secrets автоматически выходит только ZIP.
+
+Локальная упаковка:
+
+    npm run package:extension
+
+Результат в dist/extension и dist/firefox-translator-v0.1.0.zip.
+
+## Плавающая кнопка (Android и E-Ink)
+
+После установки расширения откройте статью (например, Medium) и обновите вкладку, чтобы content script появился.
+
+- **Один тап** по полупрозрачной кнопке «文A» → перевод на русский с подменой текста.
+- **Долгое нажатие (около 0,5 с)** → меню: перевести, вернуть оригинал, суммаризация, настройки модели и API-ключа.
+- **Перетаскивание** → перенос кнопки к левой или правой кромке; положение запоминается.
+- **Прозрачность** настраивается от 12 до 95 %, по умолчанию 28 %.
+- **Режим E-Ink** убирает анимацию и тени, оставляет чёрно-белый контраст.
+
+Кнопка добавлена поверх страницы без изменения её структуры. Настройки API открываются в отдельной вкладке расширения; секреты не передаются в DOM сайта. Если кнопка не появилась после обновления, убедитесь, что расширение включено и Firefox дал ему доступ к сайту.
+
+## Безопасность
+
+- Ключи сохраняются в browser.storage.local и не вставляются в HTML страницы, но это не зашифрованный сейф.
+- Тексты статей отправляются **выбранному AI-провайдеру**; не переводите конфиденциальные страницы.
+- Расширение запрашивает доступ к HTTP(S) сайтам, чтобы работать на разных статьях.
+- Списки API-моделей могут содержать несовместимые с Chat Completions модели; вручную переключитесь на подходящую.
+- Кэш не синхронизируется между устройствами.
+
+## Согласие на передачу данных Mozilla
+
+Начиная с новых версий расширение декларирует обязательные типы данных
+`websiteContent` (текст обрабатываемой статьи) и `authenticationInfo`
+(API-ключ выбранного AI-провайдера). Это не означает, что разработчик собирает
+данные: они передаются провайдеру или на сервер пользователя, если включён режим
+NestJS. Подробнее: [PRIVACY.md](PRIVACY.md).
+
+Для встроенного согласия Mozilla минимальная версия Firefox составляет 140 на ПК
+и 142 на Android. На более старых версиях расширение этой версии не установится.
+======================================================================
+END FILE: README.md
+======================================================================
+
+======================================================================
+BEGIN FILE: apps/api/package.json
+======================================================================
+{
+  "name": "@firefox-translator/api",
+  "version": "0.0.0-development",
+  "private": true,
+  "dependencies": {
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/platform-express": "^11.1.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.0"
+  }
+}
+======================================================================
+END FILE: apps/api/package.json
+======================================================================
+
+======================================================================
+BEGIN FILE: apps/api/src/controller.ts
+======================================================================
+import { Body, Controller, Get, Headers, Post, Query } from "@nestjs/common";
+import { AiService } from "./service";
+
+@Controller("api")
+export class ApiController {
+  constructor(private readonly ai: AiService) {}
+
+  @Get("health")
+  health(): { status: string } {
+    return { status: "ok" };
+  }
+
+  @Post("generate")
+  generate(
+    @Headers("x-provider-api-key") apiKey: string | undefined,
+    @Body() body: { provider?: unknown; model?: unknown; prompt?: unknown }
+  ): Promise<{ text: string }> {
+    return this.ai.generate(apiKey, body);
+  }
+
+  @Get("models")
+  models(
+    @Headers("x-provider-api-key") apiKey: string | undefined,
+    @Query("provider") provider: string
+  ): Promise<{ models: string[] }> {
+    return this.ai.models(apiKey, provider);
+  }
+}
+======================================================================
+END FILE: apps/api/src/controller.ts
+======================================================================
+
