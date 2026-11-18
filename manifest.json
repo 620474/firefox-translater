@@ -29,6 +29,7 @@
       ],
       "js": [
         "reader-core.js",
+        "reader-actions.js",
         "content.js",
         "floating.js"
       ],
