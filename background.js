@@ -15,6 +15,11 @@ function withCache(fn) {
   cacheQueue = run.catch(() => {});
   return run;
 }
+function isSettingsPage(sender) {
+  // The settings page can be displayed as a browser-action popup OR as a normal tab.
+  // sender.tab is not a reliable security boundary for extension-owned pages.
+  return sender.url === browser.runtime.getURL("popup.html");
+}
 async function settings() {
   const saved = (await browser.storage.local.get("settings")).settings || {};
   return {
@@ -195,10 +200,10 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
   try {
     switch (message?.type) {
       case "SETTINGS_GET":
-        if (sender.tab) throw Error("Недопустимый запрос");
+        if (!isSettingsPage(sender)) throw Error("Недопустимый запрос");
         return { ok: true, settings: await settings() };
       case "SETTINGS_SAVE": {
-        if (sender.tab) throw Error("Недопустимый запрос");
+        if (!isSettingsPage(sender)) throw Error("Недопустимый запрос");
         const value = message.settings || {};
         if (!PROVIDERS.includes(value.provider)) throw Error("Неизвестный провайдер");
         const clean = {
@@ -213,7 +218,7 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
         return { ok: true };
       }
       case "MODELS":
-        if (sender.tab) throw Error("Недопустимый запрос");
+        if (!isSettingsPage(sender)) throw Error("Недопустимый запрос");
         return { ok: true, models: await models() };
       case "PUBLIC_SETTINGS": {
         if (!sender.tab || sender.frameId !== 0) throw Error("Недопустимый запрос");
@@ -268,7 +273,7 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
         await setCache(String(message.key || "").slice(0, 150), message.text);
         return { ok: true };
       case "CACHE_CLEAR":
-        if (sender.tab) throw Error("Недопустимый запрос");
+        if (!isSettingsPage(sender)) throw Error("Недопустимый запрос");
         await withCache(async () => {
           await browser.storage.local.remove("translationCacheV2");
           const old = await browser.storage.local.get(null);
