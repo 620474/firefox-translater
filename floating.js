@@ -8,7 +8,7 @@
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
   let prefs = { ...DEFAULTS }, busy = false, menuOpen = false;
   let gesture = null, holdTimer = null, toastTimer = null;
-  let operationGeneration = 0;
+  let operationGeneration = 0, activeOperation = null;
 
   const host = document.createElement("div");
   host.id = "aiar-floating-root";
@@ -135,20 +135,37 @@
     node.addEventListener("click", callback);
     return node;
   }
+  function finishOperation(generation) {
+    if (generation !== operationGeneration) return;
+    busy = false;
+    activeOperation = null;
+    button.classList.remove("busy");
+    button.textContent = "文";
+    button.style.fontSize = "";
+    button.setAttribute("aria-label", "Нажмите для перевода, удерживайте для меню");
+    button.style.opacity = String(prefs.opacity);
+  }
   async function run(operation, options = {}) {
     if (busy && operation === "ORIGINAL") {
       closeMenu();
-      operationGeneration++;
+      // Restoring original text cancels translation, not a summary or selection analysis.
+      const cancelsTranslation = activeOperation === "TRANSLATE";
+      const generation = cancelsTranslation ? ++operationGeneration : operationGeneration;
       try {
         await send("TAB_ACTION", { operation, options });
-        notify("Оригинал восстановлен");
-      } catch (error) { notify("Ошибка: " + (error.message || error)); }
+        if (generation === operationGeneration) notify("Оригинал восстановлен");
+      } catch (error) {
+        if (generation === operationGeneration) notify("Ошибка: " + (error.message || error));
+      } finally {
+        if (cancelsTranslation) finishOperation(generation);
+      }
       return;
     }
     if (busy) { notify("Дождитесь завершения текущей операции"); return; }
     const generation = ++operationGeneration;
     closeMenu();
     busy = true;
+    activeOperation = operation;
     button.classList.add("busy");
     button.textContent = "⋯";
     try {
@@ -159,12 +176,7 @@
     } catch (error) {
       if (generation === operationGeneration) notify("Ошибка: " + (error.message || error));
     } finally {
-      busy = false;
-      button.classList.remove("busy");
-      button.textContent = "文";
-      button.style.fontSize = "";
-      button.setAttribute("aria-label", "Нажмите для перевода, удерживайте для меню");
-      button.style.opacity = String(prefs.opacity);
+      finishOperation(generation);
     }
   }
   async function openMenu() {
@@ -304,7 +316,7 @@
       place();
       save().catch(() => notify("Не удалось сохранить положение"));
     } else if (menuOpen) closeMenu();
-    else run("TRANSLATE");
+    else busy ? openMenu() : run("TRANSLATE");
   });
   button.addEventListener("pointercancel", () => { gesture = null; cancelHold(); });
   button.addEventListener("lostpointercapture", cancelHold);

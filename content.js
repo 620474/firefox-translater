@@ -8,7 +8,7 @@
   if (!readerActions) throw Error("AI Article Reader actions were not loaded");
 
   const translated = new Map();
-  let translationGeneration = 0;
+  let translationGeneration = 0, activeTranslation = null;
   let busy = false, summaryHost = null, summaryOutput = null;
   let summaryHeading = null, copyResultButton = null, saveResultButton = null;
   let activeResult = null, latestSelection = null;
@@ -61,14 +61,8 @@
     return latestSelection;
   }
   function proseOutsideCode(element) {
-    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-    let text = "", node;
-    while ((node = walker.nextNode())) {
-      if (node.parentElement?.closest("pre,code,kbd,samp,script,style")) continue;
-      text += node.nodeValue || "";
-      if (text.length >= 12 && /[A-Za-zÀ-ÿ\u0400-\u052F]/.test(text)) return true;
-    }
-    return false;
+    const text = proseText(element).trim();
+    return [...text].length >= 12 && /\p{L}/u.test(text);
   }
   function sections() {
     return [...articleRoot().querySelectorAll(BLOCKS)].filter(element => {
@@ -80,6 +74,12 @@
       const rect = element.getBoundingClientRect();
       return rect.width > 0 && getComputedStyle(element).display !== "none";
     });
+  }
+  function domFingerprint(element) {
+    // Local-only snapshot. Never send code or original attributes to the AI or cache.
+    // Exclude root style: hiding the original is our own DOM change.
+    return JSON.stringify([element.innerHTML,
+      ["class", "lang", "dir"].map(name => element.getAttribute(name))]);
   }
   function encodeBlock(element) {
     const slots = new Map();
@@ -93,7 +93,7 @@
       const inner = PROTECTED.has(tag) ? "" : [...node.childNodes].map(encode).join("");
       return core.start(id) + inner + core.end(id);
     }
-    return { source: [...element.childNodes].map(encode).join(""), slots };
+    return { source: [...element.childNodes].map(encode).join(""), slots, fingerprint: domFingerprint(element) };
   }
   function newElement(source) {
     const tag = source.localName?.toLowerCase();
@@ -164,7 +164,7 @@
     for (const [element, record] of translated) {
       if (!element.isConnected || !record.replacement.isConnected ||
           record.replacement.previousSibling !== element ||
-          encodeBlock(element).source !== record.source) restoreRecord(element);
+          domFingerprint(element) !== record.fingerprint) restoreRecord(element);
     }
   }
   function snapshotElements() {
@@ -194,13 +194,13 @@
   }
   function applyBlock(item, ast) {
     if (!item.element.isConnected) return;
-    if (encodeBlock(item.element).source !== item.source) return;
+    if (domFingerprint(item.element) !== item.fingerprint) return;
     const replacement = renderTranslation(item.element, ast, item.slots);
     const oldDisplay = item.element.style.getPropertyValue("display");
     const oldPriority = item.element.style.getPropertyPriority("display");
     item.element.after(replacement);
     item.element.style.setProperty("display", "none", "important");
-    translated.set(item.element, { replacement, oldDisplay, oldPriority, source: item.source });
+    translated.set(item.element, { replacement, oldDisplay, oldPriority, fingerprint: item.fingerprint });
   }
   async function translateBatch(batch, signature, generation) {
     const current = () => generation === translationGeneration;
@@ -232,6 +232,7 @@
     if (busy) throw Error("Дождитесь завершения предыдущей операции");
     busy = true;
     const generation = ++translationGeneration;
+    activeTranslation = generation;
     const current = () => generation === translationGeneration;
     try {
       const items = snapshotElements();
@@ -258,11 +259,15 @@
       if (current() && failed) throw Error(
         "Не удалось перевести " + failed + " из " + batches.length + " блоков. " + errors[0]
       );
-    } finally { busy = false; reconcileTranslations(); }
+    } finally {
+      // A cancelled worker must not release a newer translation, summary or selection action.
+      if (activeTranslation === generation) { busy = false; activeTranslation = null; }
+      if (!busy) reconcileTranslations();
+    }
   }
   function restore() {
-    // In-flight provider calls may finish, but cannot apply results or enqueue more batches.
     translationGeneration++;
+    if (activeTranslation !== null) { activeTranslation = null; busy = false; }
     for (const element of [...translated.keys()]) restoreRecord(element);
   }
   function originalText() {
@@ -426,11 +431,12 @@
       await progress("summary", chunks.length, chunks.length);
     } finally { busy = false; reconcileTranslations(); }
   }
-  // Scan tracked originals, including detached nodes. A final scan also catches mutations during busy operations.
   const observer = new MutationObserver(() => {
     if (!busy && translated.size) reconcileTranslations();
   });
-  observer.observe(document.documentElement, { subtree: true, childList: true, characterData: true });
+  observer.observe(document.documentElement, {
+    subtree: true, childList: true, characterData: true, attributes: true
+  });
   browser.runtime.onMessage.addListener(async message => {
     if (!["TRANSLATE", "ORIGINAL", "SUMMARY", "SELECTION_ACTION"].includes(message?.type)) return undefined;
     try {
