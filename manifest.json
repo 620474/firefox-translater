@@ -1,6 +1,6 @@
 {
   "manifest_version": 2,
-  "name": "Firefox Translator",
+  "name": "AI Article Reader",
   "version": "0.1.0",
   "description": "Перевод статей и суммаризация через собственные API Gemini, DeepSeek и OpenAI.",
   "permissions": [
@@ -12,17 +12,24 @@
     "https://*/*"
   ],
   "background": {
-    "scripts": ["background.js"],
+    "scripts": [
+      "background.js"
+    ],
     "persistent": true
   },
   "browser_action": {
-    "default_title": "Firefox Translator",
+    "default_title": "AI Article Reader",
     "default_popup": "popup.html"
   },
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["content.js"],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
