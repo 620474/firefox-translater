@@ -1,0 +1,27 @@
+name: Reader context actions verification
+
+on:
+  push:
+    branches:
+      - feature/reader-context-actions
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Unit and DOM tests
+        run: npm run check
+      - name: Build NestJS API
+        run: npm run build:api
+      - name: Pack Firefox add-on
+        run: npm run package:extension
