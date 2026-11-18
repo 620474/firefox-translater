@@ -4,9 +4,13 @@
   window.__aiarReaderInitialized = true;
   const core = globalThis.AIARCore;
   if (!core) throw Error("AI Article Reader core was not loaded");
+  const readerActions = globalThis.AIARActions;
+  if (!readerActions) throw Error("AI Article Reader actions were not loaded");
 
   const translated = new Map();
   let busy = false, summaryHost = null, summaryOutput = null;
+  let summaryHeading = null, copyResultButton = null, saveResultButton = null;
+  let activeResult = null, latestSelection = null;
   const BLOCKS = "h1,h2,h3,h4,h5,h6,p,li,blockquote";
   const IGNORED = "nav,footer,aside,script,style,noscript,pre,textarea,[data-aiar-translation]";
   const INLINE_KEEP = new Set([
@@ -28,6 +32,34 @@
 
   function articleRoot() {
     return document.querySelector("article") || document.querySelector("main") || document.body;
+  }
+
+  function captureSelection() {
+    const selection = window.getSelection?.();
+    if (!selection || selection.isCollapsed || !selection.rangeCount) return;
+    const text = selection.toString().trim();
+    if (text.length < 2 || text.length > 8000) return;
+    const node = selection.getRangeAt(0).commonAncestorContainer;
+    const parent = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+    if (!parent?.closest || parent.closest("input,textarea,[contenteditable=true]")) return;
+    if (!articleRoot().contains(parent)) return;
+    const block = parent.closest(BLOCKS);
+    latestSelection = {
+      selection: text,
+      context: (block?.textContent || text).trim().slice(0, 1800),
+      title: document.title,
+      url: location.href,
+      timestamp: Date.now()
+    };
+  }
+  document.addEventListener("selectionchange", captureSelection);
+  function selectedContext() {
+    captureSelection();
+    if (!latestSelection || latestSelection.url !== location.href ||
+        Date.now() - latestSelection.timestamp > 5 * 60 * 1000) {
+      throw Error("Выделите текст статьи, затем откройте меню кнопки");
+    }
+    return latestSelection;
   }
 
   function sections() {
@@ -262,6 +294,9 @@
         "box-shadow:0 3px 8px #999;font:16px/1.55 Arial,sans-serif;",
         "pointer-events:auto}",
         ".header{display:flex;gap:10px;align-items:center;justify-content:space-between}",
+        ".controls{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}",
+        ".controls .close{font-size:14px}",
+        ".close:disabled{opacity:.45}",
         ".header strong{font-size:17px}",
         ".close{min-height:42px;padding:7px 13px;border:1px solid #111;",
         "background:#fff;color:#111;font:inherit}",
@@ -276,11 +311,45 @@
       header.className = "header";
       const title = document.createElement("strong");
       title.textContent = "AI Article Reader — саммари";
+      summaryHeading = title;
       const close = document.createElement("button");
       close.className = "close";
       close.textContent = "Закрыть";
       close.addEventListener("click", () => summaryHost.remove());
-      header.append(title, close);
+      const copy = document.createElement("button");
+      copy.className = "close";
+      copy.textContent = "Копировать";
+      copy.disabled = true;
+      copyResultButton = copy;
+      copy.addEventListener("click", async () => {
+        if (!activeResult) return;
+        try {
+          await navigator.clipboard.writeText(activeResult.answer);
+          copy.textContent = "Скопировано";
+        } catch {
+          copy.textContent = "Выделите текст вручную";
+        }
+      });
+      const save = document.createElement("button");
+      save.className = "close";
+      save.textContent = "В заметки";
+      save.disabled = true;
+      saveResultButton = save;
+      save.addEventListener("click", async () => {
+        if (!activeResult) return;
+        save.disabled = true;
+        try {
+          await call("NOTES_ADD", { note: activeResult });
+          save.textContent = "Сохранено";
+        } catch (error) {
+          save.textContent = "Ошибка сохранения";
+          save.disabled = false;
+        }
+      });
+      const controls = document.createElement("div");
+      controls.className = "controls";
+      controls.append(copy, save, close);
+      header.append(title, controls);
       summaryOutput = document.createElement("div");
       summaryOutput.className = "body";
       panel.append(header, summaryOutput);
@@ -294,9 +363,44 @@
     summaryOutput.textContent = text;
   }
 
+  async function selectionAction(actionId) {
+    if (busy) throw Error("Дождитесь завершения предыдущей операции");
+    const context = selectedContext();
+    busy = true;
+    activeResult = null;
+    try {
+      const chosen = readerActions.PRESETS[actionId];
+      const name = chosen?.label || (actionId === "custom" ? "Мой промпт" : "AI-анализ");
+      let custom = "";
+      if (actionId === "custom") {
+        custom = (await call("CUSTOM_PROMPT")).prompt;
+      }
+      const prompt = readerActions.buildPrompt(actionId, context, custom);
+      await showSummary("Анализ выделенного текста…");
+      summaryHeading.textContent = "AI Article Reader — " + name;
+      copyResultButton.disabled = true;
+      saveResultButton.disabled = true;
+      const answer = (await call("GENERATE", { prompt, mode: "text" })).text;
+      activeResult = {
+        kind: actionId,
+        title: document.title,
+        selection: context.selection,
+        answer
+      };
+      await showSummary(answer);
+      copyResultButton.disabled = false;
+      saveResultButton.disabled = false;
+      saveResultButton.textContent = "В заметки";
+      copyResultButton.textContent = "Копировать";
+    } finally {
+      busy = false;
+    }
+  }
+
   async function summary(length) {
     if (busy) throw Error("Дождитесь завершения предыдущей операции");
     busy = true;
+    activeResult = null;
     try {
       const source = originalText();
       if (source.length < 100) throw Error("Недостаточно текста для саммари");
@@ -323,7 +427,18 @@
           "No unsupported claims or repetition.\n\n" + notes.join("\n\n").slice(0, 55000),
         mode: "text"
       })).text;
+      activeResult = {
+        kind: "summary",
+        title: document.title,
+        selection: "",
+        answer
+      };
       await showSummary(answer);
+      summaryHeading.textContent = "AI Article Reader — саммари";
+      copyResultButton.disabled = false;
+      saveResultButton.disabled = false;
+      copyResultButton.textContent = "Копировать";
+      saveResultButton.textContent = "В заметки";
       await progress("summary", chunks.length, chunks.length);
     } finally { busy = false; }
   }
@@ -347,15 +462,18 @@
   observer.observe(document.documentElement, { subtree: true, childList: true, characterData: true });
 
   browser.runtime.onMessage.addListener(async message => {
-    if (!["TRANSLATE", "ORIGINAL", "SUMMARY"].includes(message?.type)) return undefined;
+    if (!["TRANSLATE", "ORIGINAL", "SUMMARY", "SELECTION_ACTION"].includes(message?.type)) return undefined;
     try {
       if (message.type === "TRANSLATE") await translate();
       if (message.type === "ORIGINAL") restore();
       if (message.type === "SUMMARY") await summary(message.length);
+      if (message.type === "SELECTION_ACTION") await selectionAction(message.actionId);
       return { ok: true };
     } catch (error) {
       const reason = String(error.message || error);
-      if (message.type === "SUMMARY") await showSummary("Ошибка: " + reason);
+      if (message.type === "SUMMARY" || message.type === "SELECTION_ACTION") {
+        await showSummary("Ошибка: " + reason);
+      }
       return { ok: false, error: reason };
     }
   });
