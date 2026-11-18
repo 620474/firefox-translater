@@ -5,6 +5,7 @@ import { JSDOM } from "jsdom";
 
 const coreCode = await readFile("reader-core.js", "utf8");
 const contentCode = await readFile("content.js", "utf8");
+const actionsCode = await readFile("reader-actions.js", "utf8");
 
 function browserFixture(html) {
   const dom = new JSDOM(html, {
@@ -27,6 +28,9 @@ function browserFixture(html) {
         if (message.type === "SIGNATURE") return { ok: true, value: "gemini/test" };
         if (message.type === "CACHE_GET") return { ok: true, text: null };
         if (message.type === "CACHE_SET" || message.type === "PROGRESS") return { ok: true };
+        if (message.type === "GENERATE" && message.prompt.includes("Task (reply in Russian):")) {
+          return { ok: true, text: "Краткое объяснение выделенного термина." };
+        }
         if (message.type === "GENERATE") {
           const paragraphJson = message.prompt.split("The texts to translate are: \n")[1];
           const payload = JSON.parse(paragraphJson);
@@ -44,6 +48,7 @@ function browserFixture(html) {
     }
   };
   window.eval(coreCode);
+  window.eval(actionsCode);
   window.eval(contentCode);
   return { document: window.document, calls, getHandler: () => handle, dom };
 }
