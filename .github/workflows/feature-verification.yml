@@ -1,0 +1,24 @@
+name: Feature verification (translation engine)
+
+on:
+  push:
+    branches:
+      - feature/translation-engine-v2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-audit --no-fund
+      - name: Test browser scripts and translation engine
+        run: npm run check
+      - name: Compile NestJS
+        run: npm run build:api
