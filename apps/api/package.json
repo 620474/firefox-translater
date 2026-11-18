@@ -1,0 +1,12 @@
+{
+  "name": "@firefox-translator/api",
+  "version": "0.0.0-development",
+  "private": true,
+  "dependencies": {
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/platform-express": "^11.1.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.0"
+  }
+}
