@@ -7,13 +7,43 @@ const DEFAULTS = {
   keys: { gemini: "", deepseek: "", openai: "" },
   models: { gemini: "gemini-2.5-flash", deepseek: "deepseek-chat", openai: "gpt-4.1-mini" },
   useBackend: false,
-  backendUrl: ""
+  backendUrl: "",
+  customPrompt: ""
 };
 let cacheQueue = Promise.resolve();
 function withCache(fn) {
   const run = cacheQueue.then(fn);
   cacheQueue = run.catch(() => {});
   return run;
+}
+function isNotesPage(sender) {
+  return sender.url === browser.runtime.getURL("notes.html");
+}
+let notesQueue = Promise.resolve();
+function withNotes(fn) {
+  const work = notesQueue.then(fn);
+  notesQueue = work.catch(() => {});
+  return work;
+}
+let notesSequence = 0;
+function cleanNote(note, sender) {
+  if (!note || typeof note !== "object" ||
+      typeof note.answer !== "string" || !note.answer.trim()) {
+    throw Error("Нельзя сохранить пустую заметку");
+  }
+  const url = String(sender.tab?.url || "");
+  if (!/^https?:\/\//.test(url)) throw Error("Источник заметки должен быть веб-страницей");
+  const allowed = ["summary", "translate", "explain", "glossary", "keypoints", "custom"];
+  const type = allowed.includes(note.kind) ? note.kind : "custom";
+  return {
+    id: Date.now().toString(36) + "-" + (++notesSequence).toString(36),
+    type,
+    url: url.slice(0, 700),
+    title: String(note.title || "").slice(0, 180),
+    selection: String(note.selection || "").slice(0, 3000),
+    answer: note.answer.trim().slice(0, 12000),
+    createdAt: Date.now()
+  };
 }
 function isSettingsPage(sender) {
   // The settings page can be displayed as a browser-action popup OR as a normal tab.
@@ -211,7 +241,8 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
           keys: Object.fromEntries(PROVIDERS.map(id => [id, String(value.keys?.[id] || "").trim()])),
           models: Object.fromEntries(PROVIDERS.map(id => [id, String(value.models?.[id] || "").trim()])),
           useBackend: Boolean(value.useBackend),
-          backendUrl: String(value.backendUrl || "").trim()
+          backendUrl: String(value.backendUrl || "").trim(),
+          customPrompt: String(value.customPrompt || "").trim().slice(0, 1600)
         };
         if (clean.useBackend) backendUrl(clean.backendUrl);
         await browser.storage.local.set({ settings: clean });
@@ -234,14 +265,56 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
         return { ok: true };
       case "TAB_ACTION": {
         if (!sender.tab || sender.frameId !== 0) throw Error("Недопустимый запрос");
-        if (!["TRANSLATE", "ORIGINAL", "SUMMARY"].includes(message.operation)) {
+        if (!["TRANSLATE", "ORIGINAL", "SUMMARY", "SELECTION_ACTION"].includes(message.operation)) {
           throw Error("Неизвестная операция");
         }
         const choice = message.options?.length;
         return await browser.tabs.sendMessage(sender.tab.id, {
           type: message.operation,
-          length: ["short", "normal", "detailed"].includes(choice) ? choice : "normal"
+          length: ["short", "normal", "detailed"].includes(choice) ? choice : "normal",
+          actionId: ["translate", "explain", "glossary", "keypoints", "custom"]
+            .includes(message.options?.actionId) ? message.options.actionId : undefined
         }, { frameId: 0 });
+      }
+      case "CUSTOM_PROMPT": {
+        if (!sender.tab || sender.frameId !== 0) throw Error("Недопустимый запрос");
+        return { ok: true, prompt: (await settings()).customPrompt || "" };
+      }
+      case "OPEN_NOTES": {
+        if (!isSettingsPage(sender) && (!sender.tab || sender.frameId !== 0)) {
+          throw Error("Недопустимый запрос");
+        }
+        await browser.tabs.create({ url: browser.runtime.getURL("notes.html"), active: true });
+        return { ok: true };
+      }
+      case "NOTES_ADD": {
+        if (!sender.tab || sender.frameId !== 0) throw Error("Недопустимый запрос");
+        const note = cleanNote(message.note, sender);
+        await withNotes(async () => {
+          const saved = await browser.storage.local.get("readerNotesV1");
+          const notes = Array.isArray(saved.readerNotesV1) ? saved.readerNotesV1 : [];
+          notes.unshift(note);
+          await browser.storage.local.set({ readerNotesV1: notes.slice(0, 80) });
+        });
+        return { ok: true, id: note.id };
+      }
+      case "NOTES_LIST": {
+        if (!isNotesPage(sender)) throw Error("Недопустимый запрос");
+        const saved = await browser.storage.local.get("readerNotesV1");
+        return { ok: true, notes: Array.isArray(saved.readerNotesV1) ? saved.readerNotesV1 : [] };
+      }
+      case "NOTES_DELETE": {
+        if (!isNotesPage(sender) || typeof message.id !== "string") {
+          throw Error("Недопустимый запрос");
+        }
+        await withNotes(async () => {
+          const saved = await browser.storage.local.get("readerNotesV1");
+          const notes = Array.isArray(saved.readerNotesV1) ? saved.readerNotesV1 : [];
+          await browser.storage.local.set({
+            readerNotesV1: notes.filter(n => n.id !== message.id)
+          });
+        });
+        return { ok: true };
       }
       case "SIGNATURE": {
         if (!sender.tab || sender.frameId !== 0) throw Error("Недопустимый запрос");
