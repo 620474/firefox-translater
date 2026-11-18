@@ -9,7 +9,7 @@ async function bootstrap(): Promise<void> {
   const allowed = process.env.CORS_ORIGINS?.split(",").map(x => x.trim()).filter(Boolean);
   app.enableCors({
     origin: allowed?.length
-      ? (origin, callback) => callback(null, !origin || allowed.includes(origin))
+      ? (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => callback(null, !origin || allowed.includes(origin))
       : true,
     allowedHeaders: ["Content-Type", "X-Provider-Api-Key"],
     methods: ["GET", "POST", "OPTIONS"]
