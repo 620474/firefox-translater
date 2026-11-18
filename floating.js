@@ -280,8 +280,9 @@
     if (event.detail === 0) menuOpen ? closeMenu() : run("TRANSLATE");
   });
   document.addEventListener("pointerdown", event => {
-    if (menuOpen && !event.composedPath().includes(menu) &&
-      !event.composedPath().includes(button)) closeMenu();
+    // Closed Shadow DOM hides internal nodes from document-level listeners.
+    // Events from the launcher or menu still include the host.
+    if (menuOpen && !event.composedPath().includes(host)) closeMenu();
   }, true);
   document.addEventListener("keydown", event => {
     if (event.key === "Escape" && menuOpen) closeMenu();
