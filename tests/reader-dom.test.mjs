@@ -122,3 +122,30 @@ test("preserves code blocks and inline code exactly, and never sends their sourc
   assert.equal(originalBlock.textContent, block);
   dom.window.close();
 });
+
+test("code-only and mixed code selections cannot be translated, but can be explained", async () => {
+  const { document, calls, getHandler, dom } = browserFixture(
+    '<main><article><p id="example">Run <code>npm install package</code> to prepare your project.</p></article></main>'
+  );
+  const code = document.querySelector("code");
+  const selection = dom.window.getSelection();
+  const range = document.createRange();
+  range.selectNodeContents(code);
+  selection.removeAllRanges();
+  selection.addRange(range);
+  const rejected = await getHandler()({ type: "SELECTION_ACTION", actionId: "translate" });
+  assert.equal(rejected.ok, false);
+  assert.match(rejected.error, /Код не переводим/);
+  assert.equal(calls.filter(call => call.type === "GENERATE").length, 0);
+  const explain = await getHandler()({ type: "SELECTION_ACTION", actionId: "explain" });
+  assert.equal(explain.ok, true);
+  assert.equal(calls.filter(call => call.type === "GENERATE").length, 1);
+  const mixed = document.createRange();
+  mixed.selectNodeContents(document.getElementById("example"));
+  selection.removeAllRanges();
+  selection.addRange(mixed);
+  const again = await getHandler()({ type: "SELECTION_ACTION", actionId: "translate" });
+  assert.equal(again.ok, false);
+  assert.match(again.error, /Код не переводим/);
+  dom.window.close();
+});
