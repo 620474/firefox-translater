@@ -143,7 +143,8 @@
     try {
       await send("TAB_ACTION", { operation, options });
       notify(operation === "TRANSLATE" ? "Перевод готов" :
-        operation === "ORIGINAL" ? "Оригинал восстановлен" : "Саммари открыто");
+        operation === "ORIGINAL" ? "Оригинал восстановлен" :
+        operation === "SELECTION_ACTION" ? "Анализ выделения готов" : "Саммари открыто");
     } catch (error) {
       notify("Ошибка: " + (error.message || error));
     } finally {
@@ -189,6 +190,26 @@
     }
     summary.append(level, action("Саммари", () => run("SUMMARY", { length: level.value })));
     menu.append(summary);
+
+    menu.append(el("p", "Выделенный фрагмент", "muted"));
+    const selectionActions = el("div", "", "actions");
+    const selectedAction = (label, id) => action(label,
+      () => run("SELECTION_ACTION", { actionId: id }));
+    selectionActions.append(
+      selectedAction("Перевести фрагмент", "translate"),
+      selectedAction("Объяснить", "explain"),
+      selectedAction("Термин", "glossary"),
+      selectedAction("Тезисы", "keypoints")
+    );
+    menu.append(selectionActions);
+    menu.append(action("✦ Мой промпт (для выделения)",
+      () => run("SELECTION_ACTION", { actionId: "custom" }), "full"));
+    menu.append(action("▤ Мои заметки", async () => {
+      try {
+        await send("OPEN_NOTES");
+        closeMenu();
+      } catch (error) { notify("Ошибка: " + error.message); }
+    }, "full"));
 
     menu.append(action("⚙ Настройки AI и моделей", async () => {
       try {
