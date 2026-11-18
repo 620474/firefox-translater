@@ -150,6 +150,8 @@
       busy = false;
       button.classList.remove("busy");
       button.textContent = "文";
+      button.style.fontSize = "";
+      button.setAttribute("aria-label", "Нажмите для перевода, удерживайте для меню");
       button.style.opacity = String(prefs.opacity);
     }
   }
@@ -278,6 +280,16 @@
   // Keyboard accessibility: native click without a pointer event.
   button.addEventListener("click", event => {
     if (event.detail === 0) menuOpen ? closeMenu() : run("TRANSLATE");
+  });
+  browser.runtime.onMessage.addListener(message => {
+    if (message?.type !== "UI_PROGRESS" || !busy) return undefined;
+    const total = Number(message.total);
+    const done = Number(message.done);
+    if (!Number.isInteger(total) || total < 1 || !Number.isInteger(done)) return undefined;
+    button.textContent = Math.min(total, Math.max(0, done)) + "/" + total;
+    button.style.fontSize = "13px";
+    button.setAttribute("aria-label", "Обработка: " + done + " из " + total);
+    return undefined;
   });
   document.addEventListener("pointerdown", event => {
     // Closed Shadow DOM hides internal nodes from document-level listeners.
