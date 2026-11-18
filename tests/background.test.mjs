@@ -88,3 +88,44 @@ test("Gemini JSON-mode request uses structured MIME and systemInstruction", asyn
   assert.equal(request.options.headers["x-goog-api-key"], "test-provider-token");
   assert.equal(request.url.includes(":generateContent"), true);
 });
+
+test("notes are locally saved from article content and manageable only by the notes page", async () => {
+  const { call } = fixture();
+  const site = {
+    url: "https://medium.com/story", frameId: 0,
+    tab: { id: 2, url: "https://medium.com/story" }
+  };
+  const notesPage = { url: "moz-extension://test-extension/notes.html", tab: { id: 3 } };
+  const popup = { url: PAGE, tab: { id: 4 } };
+  const note = {
+    kind: "explain",
+    title: "TypeScript article",
+    selection: "discriminated union",
+    answer: "Это способ различать варианты объединения типов."
+  };
+  assert.equal((await call({ type: "NOTES_LIST" }, site)).ok, false);
+  const saved = await call({ type: "NOTES_ADD", note }, site);
+  assert.equal(saved.ok, true);
+  const listed = await call({ type: "NOTES_LIST" }, notesPage);
+  assert.equal(listed.ok, true);
+  assert.equal(listed.notes.length, 1);
+  assert.equal(listed.notes[0].answer, note.answer);
+  assert.equal(listed.notes[0].url, "https://medium.com/story");
+  assert.equal((await call({ type: "NOTES_DELETE", id: saved.id }, popup)).ok, false);
+  assert.equal((await call({ type: "NOTES_DELETE", id: saved.id }, notesPage)).ok, true);
+  assert.equal((await call({ type: "NOTES_LIST" }, notesPage)).notes.length, 0);
+});
+
+test("custom prompt is editable only from an extension settings page", async () => {
+  const { call } = fixture();
+  const popup = { url: PAGE, tab: { id: 7 } };
+  const site = { url: "https://medium.com/story", frameId: 0, tab: { id: 5 } };
+  const initial = (await call({ type: "SETTINGS_GET" }, popup)).settings;
+  const saved = await call({ type: "SETTINGS_SAVE", settings: {
+    ...initial, customPrompt: "Explain how this applies to TypeScript."
+  } }, popup);
+  assert.equal(saved.ok, true);
+  assert.equal((await call({ type: "SETTINGS_GET" }, site)).ok, false);
+  assert.equal((await call({ type: "CUSTOM_PROMPT" }, site)).prompt,
+    "Explain how this applies to TypeScript.");
+});
