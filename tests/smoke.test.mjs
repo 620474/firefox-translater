@@ -8,7 +8,8 @@ test("Manifest defines Firefox popup and background", async () => {
   assert.equal(data.background.scripts[0], "background.js");
   assert.equal(data.browser_action.default_popup, "popup.html");
   assert.ok(data.content_scripts[0].js.includes("floating.js"));
-  for (const name of ["background.js", "content.js", "floating.js", "popup.html", "popup.css", "popup.js"]) {
+  assert.ok(data.content_scripts[0].js.includes("reader-actions.js"));
+  for (const name of ["background.js", "content.js", "floating.js", "reader-actions.js", "popup.html", "popup.css", "popup.js", "notes.html", "notes.css", "notes.js"]) {
     assert.ok((await readFile(name, "utf8")).length > 0);
   }
 });
@@ -47,4 +48,11 @@ test("Mozilla data collection declaration matches API transmissions", async () =
   assert.equal(settings.gecko.strict_min_version, "140.0");
   assert.equal(settings.gecko_android.strict_min_version, "142.0");
   assert.equal(manifest.browser_action.default_title, "AI Article Reader");
+});
+
+test("Reader notes and custom action templates are shipped in XPI", async () => {
+  const bundler = await readFile("scripts/package-extension.mjs","utf8");
+  for (const filename of ["reader-actions.js","notes.html","notes.js","notes.css"]) {
+    assert.ok(bundler.includes(filename), filename + " missing from XPI packaging");
+  }
 });
