@@ -13,7 +13,10 @@ export class ApiController {
   @Post("generate")
   generate(
     @Headers("x-provider-api-key") apiKey: string | undefined,
-    @Body() body: { provider?: unknown; model?: unknown; prompt?: unknown }
+    @Body() body: {
+      provider?: unknown; model?: unknown; system?: unknown;
+      prompt?: unknown; mode?: unknown
+    }
   ): Promise<{ text: string }> {
     return this.ai.generate(apiKey, body);
   }
