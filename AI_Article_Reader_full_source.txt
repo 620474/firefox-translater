@@ -1309,3 +1309,330 @@ BEGIN FILE: manifest.json
 END FILE: manifest.json
 ======================================================================
 
+======================================================================
+BEGIN FILE: package.json
+======================================================================
+{
+  "name": "firefox-translator",
+  "version": "0.0.0-development",
+  "private": true,
+  "description": "AI article translator and summarizer: Firefox extension + optional NestJS API",
+  "workspaces": [
+    "apps/api"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "check": "node --check background.js && node --check content.js && node --check floating.js && node --check popup.js && node --test tests/*.test.mjs",
+    "build:api": "tsc -p apps/api/tsconfig.json",
+    "start:api": "node dist/api/main.js",
+    "package:extension": "node scripts/package-extension.mjs",
+    "release": "semantic-release"
+  },
+  "devDependencies": {
+    "@semantic-release/commit-analyzer": "^13.0.0",
+    "@semantic-release/exec": "^7.0.0",
+    "@semantic-release/github": "^11.0.0",
+    "@semantic-release/release-notes-generator": "^14.0.0",
+    "@types/node": "^22.0.0",
+    "semantic-release": "^24.0.0",
+    "typescript": "^5.8.0",
+    "web-ext": "^8.0.0"
+  }
+}
+======================================================================
+END FILE: package.json
+======================================================================
+
+======================================================================
+BEGIN FILE: popup.css
+======================================================================
+* { box-sizing: border-box; }
+:root { color-scheme: light; }
+body { width: min(380px, 100vw); min-width: 260px; margin: 0;
+  background: white; color: #111; font: 15px/1.4 system-ui, sans-serif; }
+main { padding: 14px; }
+h1 { font-size: 19px; margin: 0 0 12px; }
+label { display: block; font-weight: 600; margin: 10px 0 4px; }
+input:not([type=checkbox]), select, button { min-height: 39px; width: 100%;
+  border: 1px solid #333; border-radius: 4px; padding: 7px;
+  color: #111; background: #fff; font: inherit; }
+button { cursor: pointer; font-weight: 600; }
+button.primary { background: #151515; color: white; }
+button:disabled { opacity: .6; }
+.inline { display: flex; gap: 7px; margin-top: 8px; }
+.inline > * { flex: 1; min-width: 0; }
+.inline select { flex: 1.2; }
+summary { font-weight: 600; cursor: pointer; padding: 12px 0; }
+details { margin-top: 8px; }
+label.checkbox { font-weight: 400; display: flex; align-items: center; gap: 8px; }
+.hint { font-size: 12px; color: #555; }
+hr { border: 0; border-top: 1px solid #aaa; margin: 14px 0; }
+#status { min-height: 20px; margin: 9px 0 0; font-size: 13px; white-space: pre-wrap; }
+======================================================================
+END FILE: popup.css
+======================================================================
+
+======================================================================
+BEGIN FILE: popup.html
+======================================================================
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AI Article Reader</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <h1>AI Article Reader</h1>
+    <label for="provider">AI-провайдер</label>
+    <select id="provider">
+      <option value="gemini">Google Gemini</option>
+      <option value="deepseek">DeepSeek</option>
+      <option value="openai">OpenAI (ChatGPT API)</option>
+    </select>
+    <label for="apiKey">API-ключ</label>
+    <input id="apiKey" type="password" placeholder="Ключ выбранного провайдера" autocomplete="off">
+    <div class="inline"><button id="modelsLoad" type="button">Получить модели</button>
+      <select id="modelList" title="Доступные модели"><option value="">Список моделей</option></select></div>
+    <label for="model">Модель (можно указать ID вручную)</label>
+    <input id="model" type="text" spellcheck="false" placeholder="gemini-2.5-flash">
+    <details>
+      <summary>Дополнительно: NestJS API</summary>
+      <label class="checkbox"><input id="useBackend" type="checkbox"> Использовать свой NestJS-сервер</label>
+      <label for="backendUrl">Адрес сервера (HTTPS)</label>
+      <input id="backendUrl" type="url" placeholder="https://reader.example.com">
+      <p class="hint">По умолчанию запросы идут напрямую к AI-провайдеру. NestJS необязателен.</p>
+    </details>
+    <button id="save" type="button" class="primary">Сохранить настройки</button>
+    <hr>
+    <div class="inline"><button id="translate" type="button" class="primary">Перевести</button>
+      <button id="original" type="button">Оригинал</button></div>
+    <label for="length">Объём саммари</label>
+    <select id="length">
+      <option value="short">Кратко</option>
+      <option value="normal" selected>Стандартно</option>
+      <option value="detailed">Подробно</option>
+    </select>
+    <button id="summary" type="button">Сделать саммари</button>
+    <p id="status" role="status" aria-live="polite"></p>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>
+======================================================================
+END FILE: popup.html
+======================================================================
+
+======================================================================
+BEGIN FILE: popup.js
+======================================================================
+const $ = id => document.getElementById(id);
+let form = null;
+const providers = ["gemini", "deepseek", "openai"];
+function status(text) { $("status").textContent = text; }
+async function msg(type, extra = {}) {
+  const result = await browser.runtime.sendMessage({ type, ...extra });
+  if (!result?.ok) throw Error(result?.error || "Ошибка");
+  return result;
+}
+function render() {
+  const provider = form.provider;
+  $("provider").value = provider;
+  $("apiKey").value = form.keys[provider] || "";
+  $("model").value = form.models[provider] || "";
+  $("useBackend").checked = form.useBackend;
+  $("backendUrl").value = form.backendUrl || "";
+  $("modelList").replaceChildren(new Option("Список моделей", ""));
+}
+function collect() {
+  if (!form) return;
+  const provider = form.provider;
+  form.keys[provider] = $("apiKey").value.trim();
+  form.models[provider] = $("model").value.trim();
+  form.useBackend = $("useBackend").checked;
+  form.backendUrl = $("backendUrl").value.trim();
+}
+async function save() {
+  collect();
+  await msg("SETTINGS_SAVE", { settings: form });
+  status("Настройки сохранены");
+}
+async function activeTab() {
+  const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+  if (!tabs.length || !tabs[0].id) throw Error("Нет активной вкладки");
+  if (!/^https?:/.test(tabs[0].url || "")) throw Error("Откройте обычную веб-страницу");
+  return tabs[0];
+}
+async function action(type, options = {}) {
+  await save();
+  const tab = await activeTab();
+  status(type === "SUMMARY" ? "Суммаризация запущена..." : "Обработка статьи...");
+  const result = await browser.tabs.sendMessage(tab.id, { type, ...options });
+  if (!result?.ok) throw Error(result?.error || "Не удалось обработать страницу");
+  status("Готово. Результат на странице.");
+}
+document.addEventListener("DOMContentLoaded", async () => {
+  try {
+    form = (await msg("SETTINGS_GET")).settings;
+    render();
+  } catch (error) { status("Ошибка загрузки: " + error.message); }
+});
+$("provider").addEventListener("change", () => {
+  if (!form) return;
+  collect();
+  form.provider = $("provider").value;
+  render();
+});
+$("modelList").addEventListener("change", () => {
+  if ($("modelList").value) $("model").value = $("modelList").value;
+});
+$("modelsLoad").addEventListener("click", async () => {
+  try {
+    await save();
+    status("Загружаю модели...");
+    const models = (await msg("MODELS")).models;
+    $("modelList").replaceChildren(new Option("Выберите модель", ""));
+    for (const id of models) $("modelList").add(new Option(id, id));
+    status("Найдено моделей: " + models.length + ". Выберите модель или введите ID вручную.");
+  } catch (error) { status("Ошибка моделей: " + error.message); }
+});
+$("save").addEventListener("click", () => save().catch(e => status(e.message)));
+for (const [id, type] of [["translate", "TRANSLATE"], ["original", "ORIGINAL"], ["summary", "SUMMARY"]]) {
+  $(id).addEventListener("click", () => action(type, { length: $("length").value })
+    .catch(e => status("Ошибка: " + e.message)));
+}
+======================================================================
+END FILE: popup.js
+======================================================================
+
+======================================================================
+BEGIN FILE: scripts/package-extension.mjs
+======================================================================
+import { mkdir, readFile, writeFile, copyFile, rm } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { resolve } from "node:path";
+
+const version = process.argv[2] || "0.1.0";
+if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
+  throw Error("Invalid semantic version");
+}
+const names = ["manifest.json", "background.js", "content.js", "floating.js", "popup.html", "popup.css", "popup.js"];
+const output = resolve("dist"), source = resolve("dist/extension");
+await rm(source, { recursive: true, force: true });
+await mkdir(source, { recursive: true });
+const manifest = JSON.parse(await readFile("manifest.json", "utf8"));
+manifest.version = version;
+await writeFile(resolve(source, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
+for (const name of names.filter(name => name !== "manifest.json")) {
+  await copyFile(resolve(name), resolve(source, name));
+}
+const archive = resolve(output, "firefox-translator-v" + version + ".zip");
+await rm(archive, { force: true });
+execFileSync("zip", ["-q", "-r", archive, ...names], { cwd: source, stdio: "inherit" });
+console.log("Built extension source archive: " + archive);
+======================================================================
+END FILE: scripts/package-extension.mjs
+======================================================================
+
+======================================================================
+BEGIN FILE: scripts/sign-extension.mjs
+======================================================================
+import { readdir } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+
+const hasIssuer = Boolean(process.env.AMO_JWT_ISSUER);
+const hasSecret = Boolean(process.env.AMO_JWT_SECRET);
+
+if (hasIssuer !== hasSecret) {
+  throw Error("Both AMO_JWT_ISSUER and AMO_JWT_SECRET must be configured.");
+}
+if (!hasIssuer) {
+  console.log("Mozilla credentials are not configured: publishing a source ZIP only.");
+  process.exit(0);
+}
+
+const args = [
+  "--no-install", "web-ext", "sign",
+  "--source-dir", "dist/extension",
+  "--artifacts-dir", "dist",
+  "--channel", "unlisted",
+  "--api-key", process.env.AMO_JWT_ISSUER,
+  "--api-secret", process.env.AMO_JWT_SECRET
+];
+const result = spawnSync("npx", args, { stdio: "inherit", shell: false });
+if (result.error) throw result.error;
+if (result.status !== 0) {
+  throw Error("Mozilla signing failed with exit code " + String(result.status));
+}
+
+const files = await readdir("dist");
+const xpis = files.filter(name => name.endsWith(".xpi"));
+if (!xpis.length) {
+  throw Error("Mozilla signing finished but no .xpi was created.");
+}
+console.log("Signed Mozilla extension:", xpis.join(", "));
+======================================================================
+END FILE: scripts/sign-extension.mjs
+======================================================================
+
+======================================================================
+BEGIN FILE: tests/smoke.test.mjs
+======================================================================
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+
+test("Manifest defines Firefox popup and background", async () => {
+  const data = JSON.parse(await readFile("manifest.json", "utf8"));
+  assert.equal(data.manifest_version, 2);
+  assert.equal(data.background.scripts[0], "background.js");
+  assert.equal(data.browser_action.default_popup, "popup.html");
+  assert.ok(data.content_scripts[0].js.includes("floating.js"));
+  for (const name of ["background.js", "content.js", "floating.js", "popup.html", "popup.css", "popup.js"]) {
+    assert.ok((await readFile(name, "utf8")).length > 0);
+  }
+});
+
+test("Semantic release prepares GitHub assets", async () => {
+  const config = JSON.parse(await readFile(".releaserc.json", "utf8"));
+  assert.deepEqual(config.branches, ["main"]);
+  assert.ok(config.plugins.some(p => Array.isArray(p) && p[0] === "@semantic-release/github"));
+  const workflow = await readFile(".github/workflows/release.yml", "utf8");
+  assert.match(workflow, /npm run build:api/);
+  assert.match(workflow, /npm run release/);
+});
+
+test("Floating controls are included in signed package and use the background gateway", async () => {
+  const bundler = await readFile("scripts/package-extension.mjs", "utf8");
+  const background = await readFile("background.js", "utf8");
+  const overlay = await readFile("floating.js", "utf8");
+  assert.match(bundler, /floating\.js/);
+  assert.match(background, /case "TAB_ACTION":/);
+  assert.match(background, /case "OPEN_SETTINGS":/);
+  assert.match(overlay, /pointerdown/);
+  assert.match(overlay, /pointerup/);
+  assert.match(overlay, /pointermove/);
+  assert.match(overlay, /HOLD_MS = 520/);
+  assert.match(overlay, /aiarFloatingPrefs/);
+  assert.match(overlay, /mode|eink/i);
+});
+
+test("Mozilla data collection declaration matches API transmissions", async () => {
+  const manifest = JSON.parse(await readFile("manifest.json", "utf8"));
+  const settings = manifest.browser_specific_settings;
+  assert.deepEqual(
+    settings.gecko.data_collection_permissions.required,
+    ["websiteContent", "authenticationInfo"]
+  );
+  assert.equal(settings.gecko.strict_min_version, "140.0");
+  assert.equal(settings.gecko_android.strict_min_version, "142.0");
+  assert.equal(manifest.browser_action.default_title, "AI Article Reader");
+});
+======================================================================
+END FILE: tests/smoke.test.mjs
+======================================================================
+
