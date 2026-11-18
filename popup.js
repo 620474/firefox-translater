@@ -73,3 +73,12 @@ for (const [id, type] of [["translate", "TRANSLATE"], ["original", "ORIGINAL"], 
   $(id).addEventListener("click", () => action(type, { length: $("length").value })
     .catch(e => status("Ошибка: " + e.message)));
 }
+
+$("clearCache").addEventListener("click", async () => {
+  try {
+    await msg("CACHE_CLEAR");
+    status("Локальный кэш переводов очищен");
+  } catch (error) {
+    status("Ошибка очистки кэша: " + error.message);
+  }
+});
