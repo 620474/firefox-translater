@@ -22,7 +22,11 @@ function fixture(before) {
   dom.window.eval(code);
   const launcher = shadow.querySelector('.launcher');
   async function choose(label) {
-    if (shadow.querySelector('.menu').hidden) { launcher.click(); await tick(); }
+    if (shadow.querySelector('.menu').hidden) {
+      // A long press opens the menu even when idle; a short click starts translation.
+      launcher.dispatchEvent(new dom.window.MouseEvent('pointerdown', { button: 0 }));
+      await new Promise(resolve => setTimeout(resolve, 550));
+    }
     const button = [...shadow.querySelectorAll('.menu button')].find(b => b.textContent === label);
     assert.ok(button, label);
     button.click();
@@ -73,8 +77,6 @@ test('restoring original during summary does not unlock or cancel summary', asyn
   f.launcher.click();
   await tick();
   await f.choose('Оригинал');
-  f.launcher.click();
-  await tick();
   await f.choose('Саммари');
   assert.equal(f.launcher.classList.contains('busy'), true);
   oldGate.resolve();
