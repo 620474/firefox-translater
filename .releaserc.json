@@ -1,0 +1,31 @@
+{
+  "branches": [
+    "main"
+  ],
+  "tagFormat": "v${version}",
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "node scripts/package-extension.mjs ${nextRelease.version} && node scripts/sign-extension.mjs"
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "assets": [
+          {
+            "path": "dist/firefox-translator-v*.zip",
+            "label": "Firefox Translator — исходный ZIP (не подписан Mozilla)"
+          },
+          {
+            "path": "dist/*.xpi",
+            "label": "Firefox Translator — подписанное Mozilla расширение"
+          }
+        ]
+      }
+    ]
+  ]
+}
