@@ -10,7 +10,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "check": "node --check reader-core.js && node --check background.js && node --check content.js && node --check floating.js && node --check popup.js && node --test tests/*.test.mjs",
+    "check": "node --check reader-core.js && node --check reader-actions.js && node --check notes.js && node --check background.js && node --check content.js && node --check floating.js && node --check popup.js && node --test tests/*.test.mjs",
     "build:api": "tsc -p apps/api/tsconfig.json",
     "start:api": "node dist/api/main.js",
     "package:extension": "node scripts/package-extension.mjs",
