@@ -94,9 +94,12 @@ test('KOReader validates entire gateway host port and path', () => runLua(`
 test('KOReader permits prose punctuation while blocking recognizable code for translation only', () => runLua(`
   local presets={translate={task='Translate'},explain={task='Explain'}}
   local json={encode=function() return '{}' end}
-  local prose={'Read this carefully; then continue.','The set {a, b} contains two elements.','A function describes a relationship; this is prose.'}
+  local prose={'Read this carefully; then continue.','The set {a, b} contains two elements.','A function describes a relationship; this is prose.','The note {topic: reading} is ordinary text.','The label "name": a word in prose.'}
   for _,value in ipairs(prose) do assert(pcall(Client.buildPrompt,'translate',value,'Book',nil,presets,json),value) end
-  local code={'const value = {};','let count = 2;','var value = 3;','function greet() { return 1; }','function(x) return x end','x => x + 1',string.rep(string.char(96),3)..'js'}
+  local code={'const value = {};','let count = 2;','var value = 3;','function greet() { return 1; }','function(x) return x end','x => x + 1',string.rep(string.char(96),3)..'js',
+    [[{"enabled": true, "count": 2}]], [[{"nested": {"enabled": false}}]], [=[[{"name": "value"}]]=],
+    'body { color: red; }', '.reader { color: red }', ':root { --accent: #fff; }',
+    'Use this rule: body { display: none; } before continuing.'}
   for _,value in ipairs(code) do
     assert(not pcall(Client.buildPrompt,'translate',value,'Book',nil,presets,json),value)
     assert(pcall(Client.buildPrompt,'explain',value,'Book',nil,presets,json),value)

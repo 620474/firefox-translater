@@ -52,6 +52,15 @@ function Client.validate(settings)
 end
 local function looksLikeCode(selected)
     if selected:find("```", 1, true) or selected:find("=>", 1, true) then return true end
+    -- Match structured content, not braces or semicolons in ordinary prose.
+    for block in selected:gmatch("%b{}") do
+        if block:find('"[^"\r\n]+"%s*:') then return true end
+        if block:find("[%a_%-][%w_%-]*%s*:%s*[^;{}]+;") then return true end
+        -- CSS permits the last declaration to omit its semicolon.
+        for _, property in ipairs({"color", "background", "display", "margin", "padding", "font", "width", "height", "border", "position"}) do
+            if block:find("%f[%a]" .. property .. "[%w%-]*%s*:%s*[^%s}][^{}]*}") then return true end
+        end
+    end
     for _, keyword in ipairs({"const", "let", "var"}) do
         if selected:find("%f[%a]" .. keyword .. "%s+[%a_$][%w_$]*%s*=") then return true end
     end
