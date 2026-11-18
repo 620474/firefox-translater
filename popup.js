@@ -14,6 +14,7 @@ function render() {
   $("model").value = form.models[provider] || "";
   $("useBackend").checked = form.useBackend;
   $("backendUrl").value = form.backendUrl || "";
+  $("customPrompt").value = form.customPrompt || AIARActions.DEFAULT_CUSTOM;
   $("modelList").replaceChildren(new Option("Список моделей", ""));
 }
 function collect() {
@@ -23,6 +24,7 @@ function collect() {
   form.models[provider] = $("model").value.trim();
   form.useBackend = $("useBackend").checked;
   form.backendUrl = $("backendUrl").value.trim();
+  form.customPrompt = $("customPrompt").value.trim();
 }
 async function save() {
   collect();
@@ -80,5 +82,13 @@ $("clearCache").addEventListener("click", async () => {
     status("Локальный кэш переводов очищен");
   } catch (error) {
     status("Ошибка очистки кэша: " + error.message);
+  }
+});
+
+$("notesOpen").addEventListener("click", async () => {
+  try {
+    await msg("OPEN_NOTES");
+  } catch (error) {
+    status("Не удалось открыть заметки: " + error.message);
   }
 });
