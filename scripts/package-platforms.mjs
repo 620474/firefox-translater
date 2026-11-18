@@ -34,21 +34,49 @@ for (const name of ['popup','notes']) {
 const panelCode=`
 let panelHost;
 function openPanel(name) {
+  if (!['popup','notes'].includes(name)) throw Error('Неизвестная панель');
   panelHost?.remove();
-  panelHost=document.createElement('div');
-  panelHost.style.cssText='position:fixed;inset:0;z-index:2147483647;background:white;overflow:auto;color:black';
-  const shadow=panelHost.attachShadow({mode:'closed'});
+  const host=document.createElement('div');
+  panelHost=host;
+  host.style.cssText='position:fixed;inset:0;z-index:2147483647;background:white;overflow:auto;color:black';
+  const shadow=host.attachShadow({mode:'closed'});
   const style=document.createElement('style');
   style.textContent=(name==='notes'?notesCSS:popupCSS)+' :host{font:16px Arial} main{width:auto;max-width:680px;margin:auto;padding:16px} button,input,select{min-height:44px}';
   const close=document.createElement('button');close.textContent='Закрыть';
-  close.addEventListener('click',()=>panelHost.remove());
+  close.addEventListener('click',()=>{
+    host.remove();
+    if(panelHost===host) panelHost=null;
+  });
   const parsed=new DOMParser().parseFromString(name==='notes'?notesHTML:popupHTML,'text/html');
   shadow.append(style,close,...Array.from(parsed.body.childNodes).map(n=>document.importNode(n,true)));
-  document.documentElement.append(panelHost);
+  document.documentElement.append(host);
+  const ensureActive=()=>{
+    if(panelHost!==host || !host.isConnected) throw Error('Панель закрыта');
+  };
+  // Do not resume privileged actions after this panel has been closed or replaced.
+  // Requests already dispatched before closing cannot be rolled back here.
+  const guarded=async fn=>{
+    ensureActive();
+    const result=await fn();
+    ensureActive();
+    return result;
+  };
   const scopedDocument={getElementById:id=>shadow.getElementById(id),createElement:tag=>document.createElement(tag),
     addEventListener:(event,fn)=>{if(event==='DOMContentLoaded')fn();}};
-  const scopedBrowser={...browser,runtime:{...browser.runtime,sendMessage:message=>listeners[0](message,
-    {...pageSender(),url:browser.runtime.getURL(name+'.html')})}};
+  const scopedBrowser={...browser,
+    storage:{local:{
+      get:key=>guarded(()=>browser.storage.local.get(key)),
+      set:values=>guarded(()=>browser.storage.local.set(values)),
+      remove:keys=>guarded(()=>browser.storage.local.remove(keys))
+    }},
+    runtime:{...browser.runtime,sendMessage:message=>guarded(()=>listeners[0](message,
+      {...pageSender(),url:browser.runtime.getURL(name+'.html')}))},
+    tabs:{...browser.tabs,
+      query:options=>guarded(()=>browser.tabs.query(options)),
+      sendMessage:(id,message)=>guarded(()=>browser.tabs.sendMessage(id,message)),
+      create:options=>guarded(()=>browser.tabs.create(options))
+    }
+  };
   (name==='notes'?notesStart:popupStart)(scopedDocument,scopedBrowser);
 }
 `;
