@@ -98,7 +98,6 @@
       const groups = batches(items);
       const signature = (await call("SIGNATURE")).value;
       for (let i = 0; i < groups.length; i++) {
-        show("Перевод: " + (i + 1) + " / " + groups.length);
         const group = groups[i];
         const payload = group.map(({ id, text, context }) => ({ id, text, context }));
         const key = hash(location.href + "|ru|" + signature + "|" + JSON.stringify(payload));
@@ -125,7 +124,6 @@
         }
         if (!cached.text) await call("CACHE_SET", { key, text: response });
       }
-      show("Готово! Английские фрагменты заменены переводом. Оригинал можно вернуть в меню.");
     } finally { busy = false; }
   }
   function restore() {
@@ -133,7 +131,6 @@
     for (const [node, text] of originals.entries()) {
       if (node.isConnected) { node.textContent = text; count++; }
     }
-    show("Восстановлен оригинал (" + count + " фрагментов).");
   }
   function getSourceText() {
     return sections().map(section => {
