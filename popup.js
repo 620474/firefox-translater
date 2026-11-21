@@ -1,7 +1,26 @@
 const $ = id => document.getElementById(id);
 let form = null;
 const providers = ["gemini", "deepseek", "openai"];
-function status(text) { $("status").textContent = text; }
+function status(text, state = "info") {
+  $("status").textContent = text;
+  $("status").dataset.state = state;
+}
+async function clickTask(id, pending, work, done) {
+  const button = $(id);
+  if (button.disabled) return;
+  button.disabled = true;
+  button.setAttribute("aria-busy", "true");
+  status(pending, "busy");
+  try {
+    await work();
+    if (done) status(done, "ok");
+  } catch (error) {
+    status("Ошибка: " + error.message, "error");
+  } finally {
+    button.disabled = false;
+    button.removeAttribute("aria-busy");
+  }
+}
 async function msg(type, extra = {}) {
   const result = await browser.runtime.sendMessage({ type, ...extra });
   if (!result?.ok) throw Error(result?.error || "Ошибка");
@@ -29,7 +48,7 @@ function collect() {
 async function save() {
   collect();
   await msg("SETTINGS_SAVE", { settings: form });
-  status("Настройки сохранены");
+  status("Настройки сохранены", "ok");
 }
 async function activeTab() {
   const tabs = await browser.tabs.query({ active: true, currentWindow: true });
@@ -39,9 +58,9 @@ async function activeTab() {
 }
 async function action(type, options = {}) {
   await save();
-  const tab = await activeTab();
+  const { tabId } = await msg("SETTINGS_TARGET");
   status(type === "SUMMARY" ? "Суммаризация запущена..." : "Обработка статьи...");
-  const result = await browser.tabs.sendMessage(tab.id, { type, ...options });
+  const result = await browser.tabs.sendMessage(tabId, { type, ...options });
   if (!result?.ok) throw Error(result?.error || "Не удалось обработать страницу");
   status("Готово. Результат на странице.");
 }
@@ -49,46 +68,45 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     form = (await msg("SETTINGS_GET")).settings;
     render();
-  } catch (error) { status("Ошибка загрузки: " + error.message); }
+    status("Настройки загружены", "ok");
+  } catch (error) { status("Ошибка загрузки: " + error.message, "error"); }
 });
 $("provider").addEventListener("change", () => {
   if (!form) return;
   collect();
   form.provider = $("provider").value;
   render();
+  status("Провайдер изменён — сохраните настройки");
 });
 $("modelList").addEventListener("change", () => {
-  if ($("modelList").value) $("model").value = $("modelList").value;
+  if ($("modelList").value) {
+    $("model").value = $("modelList").value;
+    status("Модель выбрана — сохраните настройки");
+  }
 });
-$("modelsLoad").addEventListener("click", async () => {
-  try {
-    await save();
-    status("Загружаю модели...");
-    const models = (await msg("MODELS")).models;
-    $("modelList").replaceChildren(new Option("Выберите модель", ""));
-    for (const id of models) $("modelList").add(new Option(id, id));
-    status("Найдено моделей: " + models.length + ". Выберите модель или введите ID вручную.");
-  } catch (error) { status("Ошибка моделей: " + error.message); }
-});
-$("save").addEventListener("click", () => save().catch(e => status(e.message)));
+$("modelsLoad").addEventListener("click", () => clickTask("modelsLoad", "Получаю модели…", async () => {
+  await save();
+  const models = (await msg("MODELS")).models;
+  $("modelList").replaceChildren(new Option("Выберите модель", ""));
+  for (const id of models) $("modelList").add(new Option(id, id));
+  status("Найдено моделей: " + models.length + ". Выберите модель или введите ID вручную.", "ok");
+}));
+$("saveOnly").addEventListener("click", () => clickTask("saveOnly", "Сохраняю настройки…", save));
+$("save").addEventListener("click", () => clickTask("save", "Сохраняю и возвращаюсь к статье…", async () => {
+  await save();
+  const result = await msg("SETTINGS_FINISH");
+  if (result.closePopup) window.close();
+  if (result.noOrigin) status("Сохранено. Исходная вкладка не найдена — закройте настройки вручную.", "ok");
+}));
 for (const [id, type] of [["translate", "TRANSLATE"], ["original", "ORIGINAL"], ["summary", "SUMMARY"]]) {
-  $(id).addEventListener("click", () => action(type, { length: $("length").value })
-    .catch(e => status("Ошибка: " + e.message)));
+  $(id).addEventListener("click", () => clickTask(id, type === "SUMMARY" ? "Создаю саммари…" : "Обрабатываю статью…",
+    () => action(type, { length: $("length").value })));
 }
-
-$("clearCache").addEventListener("click", async () => {
-  try {
-    await msg("CACHE_CLEAR");
-    status("Локальный кэш переводов очищен");
-  } catch (error) {
-    status("Ошибка очистки кэша: " + error.message);
-  }
-});
-
-$("notesOpen").addEventListener("click", async () => {
-  try {
-    await msg("OPEN_NOTES");
-  } catch (error) {
-    status("Не удалось открыть заметки: " + error.message);
-  }
-});
+$("clearCache").addEventListener("click", () => clickTask("clearCache", "Очищаю кэш…", async () => {
+  await msg("CACHE_CLEAR");
+  status("Локальный кэш переводов очищен", "ok");
+}));
+$("notesOpen").addEventListener("click", () => clickTask("notesOpen", "Открываю заметки…", async () => {
+  await msg("OPEN_NOTES");
+  status("Заметки открыты", "ok");
+}));
