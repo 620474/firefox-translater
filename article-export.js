@@ -27,7 +27,7 @@ function sanitize(fragment,base){
   for(const bad of [...fragment.querySelectorAll(DROP)]) bad.remove();
   const document=fragment.ownerDocument;
   for(const el of [...fragment.querySelectorAll("*")]){
-    if(!el.isConnected)continue;
+    if(!fragment.contains(el))continue;
     const tag=el.localName.toLowerCase();
     if(!KEEP.has(tag)){
       el.replaceWith(...el.childNodes);
