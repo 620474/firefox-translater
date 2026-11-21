@@ -10,13 +10,16 @@
   const PRESETS = Object.freeze({
     translate: {
       label: "Перевести выделение",
-      task: "Translate the selection into natural Russian, preserving technical terminology, " +
-        "numbers, identifiers and meaning. Return the translation only."
+      task: "Translate the selection into natural, technically precise Russian without omissions. " +
+        "Preserve names of technologies, APIs, patterns and established English technical terms, " +
+        "as well as code, numbers and identifiers. Do not add explanations. Return the translation only."
     },
     explain: {
       label: "Объяснить",
-      task: "Explain the selection in clear Russian, keeping technical accuracy. " +
-        "Describe why it matters and give one concise example only if relevant."
+      task: "Explain the selection in concise natural technical Russian while preserving precise " +
+        "English API and terminology. Start directly; if the concept needs clarification, " +
+        "add 'Суть:' with one or two sentences. Provide a code example of at most six short " +
+        "lines only if necessary to understand the concept."
     },
     glossary: {
       label: "Разобрать термин",
