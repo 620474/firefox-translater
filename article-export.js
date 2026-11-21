@@ -52,6 +52,14 @@ function sanitize(fragment,base){
 function snapshot(root,translations,base){
   const clone=root.cloneNode(true);
   const originalNodes=[root,...root.querySelectorAll("*")],copiedNodes=[clone,...clone.querySelectorAll("*")];
+  // Resolve lazy/responsive image URLs while source nodes are still aligned.
+  for(let i=0;i<originalNodes.length;i++){
+    if(originalNodes[i]?.localName!=="img"||copiedNodes[i]?.localName!=="img")continue;
+    const selected=originalNodes[i].currentSrc||originalNodes[i].getAttribute("src");
+    if(selected)copiedNodes[i].setAttribute("src",selected);
+    copiedNodes[i].removeAttribute("srcset");
+    copiedNodes[i].removeAttribute("sizes");
+  }
   // Each entry points to the hidden source, whose translated sibling is already in the clone.
   for(let i=0;i<originalNodes.length;i++){
     if(!translations.has(originalNodes[i]))continue;
@@ -59,13 +67,6 @@ function snapshot(root,translations,base){
     if(source?.parentNode)source.remove();
   }
   for(const el of [...clone.querySelectorAll("[data-aiar-translation]")])el.removeAttribute("data-aiar-translation");
-  // Medium lazy images often store the usable URL on the original element.
-  const originals=[root,...root.querySelectorAll("*")].filter(e=>e.localName==="img");
-  const images=[...clone.querySelectorAll("img")];
-  for(let i=0;i<images.length;i++){
-    const src=originals[i]?.currentSrc||originals[i]?.getAttribute("src")||images[i].getAttribute("src");
-    if(src)images[i].setAttribute("src",src);
-  }
   sanitize(clone,base);
   return clone;
 }
