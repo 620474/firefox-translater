@@ -84,7 +84,7 @@ function openPanel(name) {
 `;
 const script=metadata+'\n(async function(){\n"use strict";\nif(window.top!==window)return;\n'+
   await read('platforms/einkbro/adapter.js')+'\n'+await read('background.js')+'\n'+
-  panels+panelCode+'\n'+await read('reader-core.js')+'\n'+await read('reader-actions.js')+'\n'+
+  panels+panelCode+'\n'+await read('reader-core.js')+'\n'+await read('reader-actions.js')+'\n'+await read('article-export.js')+'\n'+
   `if(!(await browser.storage.local.get('aiarFloatingPrefs')).aiarFloatingPrefs) await browser.storage.local.set({aiarFloatingPrefs:{eink:true}});\n`+
   await read('content.js')+'\n'+await read('floating.js')+'\nGM_registerMenuCommand("AI Article Reader - настройки",()=>openPanel("popup"));\n})();\n';
 await writeFile(`dist/ai-article-reader-einkbro-v${version}.user.js`,script);
