@@ -173,7 +173,8 @@
       await send("TAB_ACTION", { operation, options });
       if (generation === operationGeneration) notify(operation === "TRANSLATE" ? "Перевод готов" :
         operation === "ORIGINAL" ? "Оригинал восстановлен" :
-        operation === "SELECTION_ACTION" ? "Анализ выделения готов" : "Саммари открыто");
+        operation === "SELECTION_ACTION" ? "Анализ выделения готов" :
+        operation === "EXPORT_ARTICLE" ? "Статья подготовлена" : "Саммари открыто");
     } catch (error) {
       if (generation === operationGeneration) notify("Ошибка: " + (error.message || error));
     } finally {
@@ -198,6 +199,13 @@
       action("Оригинал", () => run("ORIGINAL"))
     );
     menu.append(actions);
+    const exportActions=el("div","","actions");
+    exportActions.style.marginTop="8px";
+    exportActions.append(
+      action("Скачать HTML",()=>run("EXPORT_ARTICLE",{format:"html"})),
+      action("Сохранить PDF",()=>run("EXPORT_ARTICLE",{format:"pdf"}))
+    );
+    menu.append(exportActions);
 
     const summary = el("div", "", "summary");
     const level = document.createElement("select");
