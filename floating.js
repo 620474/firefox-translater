@@ -213,19 +213,17 @@
     summary.append(level, action("Саммари", () => run("SUMMARY", { length: level.value })));
     menu.append(summary);
 
-    menu.append(el("p", "Выделенный фрагмент", "muted"));
+    menu.append(el("p", "Сначала выделите текст на странице долгим нажатием", "muted"));
     const selectionActions = el("div", "", "actions");
     const selectedAction = (label, id) => action(label,
       () => run("SELECTION_ACTION", { actionId: id }));
     selectionActions.append(
       selectedAction("Перевести фрагмент", "translate"),
-      selectedAction("Объяснить", "explain"),
+      selectedAction("Объяснить выделенное", "explain"),
       selectedAction("Термин", "glossary"),
       selectedAction("Тезисы", "keypoints")
     );
     menu.append(selectionActions);
-    menu.append(action("✦ Мой промпт (для выделения)",
-      () => run("SELECTION_ACTION", { actionId: "custom" }), "full"));
     menu.append(action("▤ Мои заметки", async () => {
       try {
         await send("OPEN_NOTES");
