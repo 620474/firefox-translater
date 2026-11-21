@@ -315,6 +315,31 @@ async function setCache(key, text) {
   });
 }
 
+async function exportImage(raw) {
+  const url = new URL(raw);
+  if (!["https:", "http:"].includes(url.protocol) || url.username || url.password ||
+      /^(localhost|127(?:\\.\\d{1,3}){3}|0\\.0\\.0\\.0|\\[::1\\]|10\\.|192\\.168\\.|169\\.254\\.|172\\.(?:1[6-9]|2\\d|3[01])\\.)/i.test(url.hostname)) {
+    throw Error("Недопустимый адрес изображения");
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const response = await fetch(url.href, { credentials: "omit", referrerPolicy: "no-referrer", signal: controller.signal });
+    if (!response.ok) throw Error("Изображение недоступно");
+    const mime = (response.headers.get("content-type") || "").split(";")[0].toLowerCase();
+    if (!/^image\\/(?:png|jpeg|gif|webp|avif)$/.test(mime)) throw Error("Недопустимый тип изображения");
+    if (Number(response.headers.get("content-length")) > 2000000) throw Error("Изображение слишком большое");
+    const blob = await response.blob();
+    if (blob.size > 2000000) throw Error("Изображение слишком большое");
+    const data = await new Promise((resolve,reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(Error("Ошибка чтения изображения"));
+      reader.readAsDataURL(blob);
+    });
+    return data;
+  } finally { clearTimeout(timer); }
+}
 browser.runtime.onMessage.addListener(async (message, sender) => {
   try {
     switch (message?.type) {
@@ -394,12 +419,13 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
       }
       case "TAB_ACTION": {
         if (!sender.tab || sender.frameId !== 0) throw Error("Недопустимый запрос");
-        if (!["TRANSLATE", "ORIGINAL", "SUMMARY", "SELECTION_ACTION"].includes(message.operation)) {
+        if (!["TRANSLATE", "ORIGINAL", "SUMMARY", "SELECTION_ACTION", "EXPORT_ARTICLE"].includes(message.operation)) {
           throw Error("Неизвестная операция");
         }
         const choice = message.options?.length;
         return await browser.tabs.sendMessage(sender.tab.id, {
           type: message.operation,
+          format: ["html","pdf"].includes(message.options?.format) ? message.options.format : undefined,
           length: ["short", "normal", "detailed"].includes(choice) ? choice : "normal",
           actionId: ["translate", "explain", "glossary", "keypoints", "custom"]
             .includes(message.options?.actionId) ? message.options.actionId : undefined
@@ -444,6 +470,12 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
           });
         });
         return { ok: true };
+      }
+      case "EXPORT_IMAGE": {
+        if (!sender.tab || sender.frameId !== 0 || typeof message.url !== "string") {
+          throw Error("Недопустимый запрос");
+        }
+        return { ok: true, data: await exportImage(message.url) };
       }
       case "SIGNATURE": {
         if (!sender.tab || sender.frameId !== 0) throw Error("Недопустимый запрос");
