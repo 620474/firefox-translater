@@ -6,7 +6,7 @@ const version = process.argv[2] || "0.1.0";
 if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
   throw Error("Invalid semantic version");
 }
-const names = ["manifest.json", "background.js", "reader-core.js", "reader-actions.js", "content.js", "floating.js", "popup.html", "popup.css", "popup.js", "notes.html", "notes.css", "notes.js"];
+const names = ["manifest.json", "background.js", "reader-core.js", "reader-actions.js", "article-export.js", "content.js", "floating.js", "popup.html", "popup.css", "popup.js", "notes.html", "notes.css", "notes.js"];
 const output = resolve("dist"), source = resolve("dist/extension");
 await rm(source, { recursive: true, force: true });
 await mkdir(source, { recursive: true });
