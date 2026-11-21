@@ -26,7 +26,8 @@
     "padding:0;pointer-events:auto;transition:opacity 120ms;-webkit-tap-highlight-color:transparent}",
     ".launcher::after{content:'A';font:bold 8px Arial,sans-serif;position:absolute;",
     "right:3px;top:2px;padding:0 1px;background:#fff;color:#111}",
-    ".launcher:hover,.launcher:active,.launcher:focus-visible,.launcher.busy{opacity:.95!important}",
+    "@media(hover:hover) and (pointer:fine){.launcher:hover{opacity:.95!important}}",
+    ".launcher:active,.launcher:focus-visible,.launcher.busy{opacity:.95!important}",
     ".menu{position:fixed;width:min(310px,calc(100vw - 24px));",
     "max-height:calc(100vh - 24px);overflow-y:auto;overscroll-behavior:contain;",
     "background:#fff;color:#111;border:1px solid #777;border-radius:14px;",
@@ -308,6 +309,7 @@
     cancelHold();
     const moved = gesture.moved;
     gesture = null;
+    button.blur(); // Touch browsers may retain the synthetic hover/focus state after dragging.
     if (moved) {
       prefs.side = event.clientX < innerWidth / 2 ? "left" : "right";
       prefs.topRatio = clamp((event.clientY - SIZE / 2) / innerHeight, .04, .92);
@@ -316,7 +318,7 @@
     } else if (menuOpen) closeMenu();
     else busy ? openMenu() : run("TRANSLATE");
   });
-  button.addEventListener("pointercancel", () => { gesture = null; cancelHold(); });
+  button.addEventListener("pointercancel", () => { gesture = null; cancelHold(); button.blur(); });
   button.addEventListener("lostpointercapture", cancelHold);
   // Keyboard accessibility: native click without a pointer event.
   button.addEventListener("click", event => {
