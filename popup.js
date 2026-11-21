@@ -45,10 +45,10 @@ function collect() {
   form.backendUrl = $("backendUrl").value.trim();
   form.customPrompt = $("customPrompt").value.trim();
 }
-async function save() {
+async function save(showFeedback = true) {
   collect();
   await msg("SETTINGS_SAVE", { settings: form });
-  status("Настройки сохранены", "ok");
+  if (showFeedback) status("Настройки сохранены", "ok");
 }
 async function activeTab() {
   const tabs = await browser.tabs.query({ active: true, currentWindow: true });
@@ -57,7 +57,7 @@ async function activeTab() {
   return tabs[0];
 }
 async function action(type, options = {}) {
-  await save();
+  await save(false);
   const { tabId } = await msg("SETTINGS_TARGET");
   status(type === "SUMMARY" ? "Суммаризация запущена..." : "Обработка статьи...");
   const result = await browser.tabs.sendMessage(tabId, { type, ...options });
@@ -85,7 +85,7 @@ $("modelList").addEventListener("change", () => {
   }
 });
 $("modelsLoad").addEventListener("click", () => clickTask("modelsLoad", "Получаю модели…", async () => {
-  await save();
+  await save(false);
   const models = (await msg("MODELS")).models;
   $("modelList").replaceChildren(new Option("Выберите модель", ""));
   for (const id of models) $("modelList").add(new Option(id, id));
@@ -93,7 +93,7 @@ $("modelsLoad").addEventListener("click", () => clickTask("modelsLoad", "Пол�
 }));
 $("saveOnly").addEventListener("click", () => clickTask("saveOnly", "Сохраняю настройки…", save));
 $("save").addEventListener("click", () => clickTask("save", "Сохраняю и возвращаюсь к статье…", async () => {
-  await save();
+  await save(false);
   const result = await msg("SETTINGS_FINISH");
   if (result.closePopup) window.close();
   if (result.noOrigin) status("Сохранено. Исходная вкладка не найдена — закройте настройки вручную.", "ok");
