@@ -34,6 +34,8 @@ function render() {
   $("useBackend").checked = form.useBackend;
   $("backendUrl").value = form.backendUrl || "";
   $("customPrompt").value = form.customPrompt || AIARActions.DEFAULT_CUSTOM;
+  $("translationPrompt").value = form.translationPrompt || "";
+  $("explanationPrompt").value = form.explanationPrompt || "";
   $("modelList").replaceChildren(new Option("Список моделей", ""));
 }
 function collect() {
@@ -44,6 +46,8 @@ function collect() {
   form.useBackend = $("useBackend").checked;
   form.backendUrl = $("backendUrl").value.trim();
   form.customPrompt = $("customPrompt").value.trim();
+  form.translationPrompt = $("translationPrompt").value.trim();
+  form.explanationPrompt = $("explanationPrompt").value.trim();
 }
 async function save(showFeedback = true) {
   collect();
@@ -110,3 +114,14 @@ $("notesOpen").addEventListener("click", () => clickTask("notesOpen", "Откр�
   await msg("OPEN_NOTES");
   status("Заметки открыты", "ok");
 }));
+
+$("resetPrompts").addEventListener("click", async () => {
+  if (!form) return;
+  try {
+    const defaults = await msg("PROMPTS_DEFAULTS");
+    $("translationPrompt").value = defaults.translation;
+    $("explanationPrompt").value = defaults.explanation;
+    $("customPrompt").value = AIARActions.DEFAULT_CUSTOM;
+    status("Стандартные промпты восстановлены в форме. Нажмите «Сохранить».", "ok");
+  } catch (error) { status("Ошибка: " + error.message, "error"); }
+});
