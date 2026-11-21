@@ -6,6 +6,7 @@ import { JSDOM } from "jsdom";
 const coreCode = await readFile("reader-core.js", "utf8");
 const contentCode = await readFile("content.js", "utf8");
 const actionsCode = await readFile("reader-actions.js", "utf8");
+const exportCode = await readFile("article-export.js", "utf8");
 
 function browserFixture(html) {
   const dom = new JSDOM(html, {
@@ -51,6 +52,7 @@ function browserFixture(html) {
   };
   window.eval(coreCode);
   window.eval(actionsCode);
+  window.eval(exportCode);
   window.eval(contentCode);
   return { document: window.document, calls, getHandler: () => handle, dom };
 }
