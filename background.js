@@ -21,6 +21,8 @@ const DEFAULT_SYSTEM_PROMPTS = Object.freeze({
   general: "You accurately analyze and summarize article content in Russian, preserving technical " +
     "details and caveats. Never add unsupported claims. "
 });
+const LEGACY_CUSTOM_DEFAULT = "Объясни выделенный фрагмент как опытный разработчик React/TypeScript. " +
+  "Сохраняй названия технологий и API. Приведи короткий практический пример, если он нужен.";
 const DEFAULTS = {
   provider: "gemini",
   keys: { gemini: "", deepseek: "", openai: "" },
@@ -76,6 +78,8 @@ async function settings() {
   const saved = (await browser.storage.local.get("settings")).settings || {};
   return {
     ...DEFAULTS, ...saved,
+    // Migrate only the former stock prompt; keep genuinely customized text untouched.
+    customPrompt: saved.customPrompt === LEGACY_CUSTOM_DEFAULT ? "" : (saved.customPrompt || ""),
     translationPrompt: typeof saved.translationPrompt === "string" && saved.translationPrompt.trim()
       ? saved.translationPrompt : DEFAULT_SYSTEM_PROMPTS.translation,
     explanationPrompt: typeof saved.explanationPrompt === "string" && saved.explanationPrompt.trim()
@@ -331,7 +335,8 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
           models: Object.fromEntries(PROVIDERS.map(id => [id, String(value.models?.[id] || "").trim()])),
           useBackend: Boolean(value.useBackend),
           backendUrl: String(value.backendUrl || "").trim(),
-          customPrompt: String(value.customPrompt || "").trim().slice(0, 1600),
+          customPrompt: String(value.customPrompt || "").trim().slice(0, 1600) === LEGACY_CUSTOM_DEFAULT
+            ? "" : String(value.customPrompt || "").trim().slice(0, 1600),
           translationPrompt: String(value.translationPrompt || DEFAULT_SYSTEM_PROMPTS.translation)
             .trim().slice(0, 4000) || DEFAULT_SYSTEM_PROMPTS.translation,
           explanationPrompt: String(value.explanationPrompt || DEFAULT_SYSTEM_PROMPTS.explanation)
