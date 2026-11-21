@@ -318,7 +318,7 @@ async function setCache(key, text) {
 async function exportImage(raw) {
   const url = new URL(raw);
   if (!["https:", "http:"].includes(url.protocol) || url.username || url.password ||
-      /^(localhost|127(?:\\.\\d{1,3}){3}|0\\.0\\.0\\.0|\\[::1\\]|10\\.|192\\.168\\.|169\\.254\\.|172\\.(?:1[6-9]|2\\d|3[01])\\.)/i.test(url.hostname)) {
+      /^(localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0|\[::1\]|10\.|192\.168\.|169\.254\.|172\.(?:1[6-9]|2\d|3[01])\.)/i.test(url.hostname)) {
     throw Error("Недопустимый адрес изображения");
   }
   const controller = new AbortController();
@@ -327,7 +327,7 @@ async function exportImage(raw) {
     const response = await fetch(url.href, { credentials: "omit", referrerPolicy: "no-referrer", signal: controller.signal });
     if (!response.ok) throw Error("Изображение недоступно");
     const mime = (response.headers.get("content-type") || "").split(";")[0].toLowerCase();
-    if (!/^image\\/(?:png|jpeg|gif|webp|avif)$/.test(mime)) throw Error("Недопустимый тип изображения");
+    if (!/^image\/(?:png|jpeg|gif|webp|avif)$/.test(mime)) throw Error("Недопустимый тип изображения");
     if (Number(response.headers.get("content-length")) > 2000000) throw Error("Изображение слишком большое");
     const blob = await response.blob();
     if (blob.size > 2000000) throw Error("Изображение слишком большое");
