@@ -4,6 +4,8 @@
   window.__aiarReaderInitialized = true;
   const core = globalThis.AIARCore;
   if (!core) throw Error("AI Article Reader core was not loaded");
+  const exporter = globalThis.AIARExport;
+  if (!exporter) throw Error("AI Article Reader export module was not loaded");
   const readerActions = globalThis.AIARActions;
   if (!readerActions) throw Error("AI Article Reader actions were not loaded");
 
@@ -285,6 +287,20 @@
     return text;
   }
 
+  async function exportArticle(format) {
+    if (busy) throw Error("Дождитесь завершения перевода");
+    reconcileTranslations();
+    const root=articleRoot();
+    const article=exporter.snapshot(root,translated,location.href);
+    const title=(document.querySelector("article h1")?.textContent || document.title || "Статья").trim();
+    const safeName=title.replace(/[\\/:*?"<>|\\u0000-\\u001f]/g,"-").slice(0,90).trim() || "article";
+    const stats=await exporter.inlineImages(article,async url => call("EXPORT_IMAGE",{url}));
+    const html=exporter.documentHtml(article,{title,url:location.href});
+    if(format==="html")exporter.saveHtml(html,safeName);
+    else if(format==="pdf")exporter.showPrint(html);
+    else throw Error("Неизвестный формат экспорта");
+    return stats;
+  }
   async function showSummary(text) {
     if (!summaryHost?.isConnected) {
       summaryHost = document.createElement("div");
@@ -441,12 +457,13 @@
     subtree: true, childList: true, characterData: true, attributes: true
   });
   browser.runtime.onMessage.addListener(async message => {
-    if (!["TRANSLATE", "ORIGINAL", "SUMMARY", "SELECTION_ACTION"].includes(message?.type)) return undefined;
+    if (!["TRANSLATE", "ORIGINAL", "SUMMARY", "SELECTION_ACTION", "EXPORT_ARTICLE"].includes(message?.type)) return undefined;
     try {
       if (message.type === "TRANSLATE") await translate();
       if (message.type === "ORIGINAL") restore();
       if (message.type === "SUMMARY") await summary(message.length);
       if (message.type === "SELECTION_ACTION") await selectionAction(message.actionId);
+      if (message.type === "EXPORT_ARTICLE") await exportArticle(message.format);
       return { ok: true };
     } catch (error) {
       const reason = String(error.message || error);
