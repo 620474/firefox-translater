@@ -80,7 +80,7 @@ test('EinkBro bundle translates, restores, explains, saves notes and opens setti
   const range=w.document.createRange();range.selectNodeContents(w.document.querySelector('#source').firstChild);
   w.getSelection().addRange(range);
   launcher.dispatchEvent(new w.MouseEvent('pointerdown',{button:0}));await new Promise(r=>setTimeout(r,550));
-  [...menu.querySelectorAll('button')].find(b=>b.textContent==='Объяснить').click();
+  [...menu.querySelectorAll('button')].find(b=>b.textContent==='Объяснить выделенное').click();
   await settle(()=>shadows.some(s=>[...s.querySelectorAll('button')].some(b=>b.textContent==='В заметки'&&!b.disabled)));
   const result=shadows.find(s=>[...s.querySelectorAll('button')].some(b=>b.textContent==='В заметки'));
   [...result.querySelectorAll('button')].find(b=>b.textContent==='В заметки').click();
@@ -91,6 +91,8 @@ test('EinkBro bundle translates, restores, explains, saves notes and opens setti
   panel.getElementById('model').value='changed-model';
   assert.match(panel.getElementById('translationPrompt').value,/Translate faithfully/);
   assert.match(panel.getElementById('explanationPrompt').value,/narrow popup/);
+  assert.equal(panel.getElementById('customPrompt'),null);
+  assert.ok(![...menu.querySelectorAll('button')].some(b=>b.textContent.includes('Мой промпт')));
   panel.getElementById('translationPrompt').value='My editable translation directions';
   panel.getElementById('saveOnly').click();
   await settle(()=>values.settings.models.gemini==='changed-model');
