@@ -57,10 +57,10 @@ test("Reader notes and custom action templates are shipped in XPI", async () => 
   }
 });
 
-test("Android/E-Ink floating control has compact 36px visual size", async () => {
+test("Android/E-Ink floating control has compact 30px visual size", async () => {
   const code = await readFile("floating.js", "utf8");
-  assert.match(code, /const SIZE = 36, EDGE = 10/);
-  assert.match(code, /width:36px;height:36px/);
-  assert.match(code, /font-size:20px/);
+  assert.match(code, /const SIZE = 30, EDGE = 10/);
+  assert.match(code, /width:30px;height:30px/);
+  assert.match(code, /font-size:17px/);
   assert.match(code, /event\.clientX - SIZE \/ 2/);
 });
