@@ -91,3 +91,12 @@ test("Only one editable prompt is presented for explaining selected text", async
   assert.doesNotMatch(floating, /Мой промпт \(для выделения\)/);
   assert.match(page, /actionId === "explain" \? "explanation" : "general"/);
 });
+
+test("Touch dragging never leaves the launcher stuck in opaque hover state", async () => {
+  const floating = await readFile("floating.js", "utf8");
+  assert.match(floating, /@media\(hover:hover\) and \(pointer:fine\)/);
+  assert.doesNotMatch(floating, /\.launcher:hover,\.launcher:active/);
+  assert.match(floating, /button\.blur\(\); \/\/ Touch browsers/);
+  assert.match(floating, /pointercancel", \(\) => \{ gesture = null; cancelHold\(\); button\.blur\(\);/);
+  assert.match(floating, /button\.style\.opacity = String\(prefs\.opacity\)/);
+});
