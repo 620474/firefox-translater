@@ -32,7 +32,8 @@
     <textarea id="customPrompt" rows="4" maxlength="1600"
       placeholder="Например: объясни, как это применяется в React/TypeScript"></textarea>
     <p class="hint">Используется действием «Мой промпт». Текст выделения и его контекст передаются отдельно.</p>
-    <button id="save" type="button" class="primary">Сохранить настройки</button>
+    <button id="save" type="button" class="primary">Сохранить и вернуться</button>
+    <button id="saveOnly" type="button">Сохранить без закрытия</button>
     <button id="notesOpen" type="button">Мои заметки</button>
     <button id="clearCache" type="button">Очистить кэш переводов</button>
     <hr>
@@ -45,7 +46,7 @@
       <option value="detailed">Подробно</option>
     </select>
     <button id="summary" type="button">Сделать саммари</button>
-    <p id="status" role="status" aria-live="polite"></p>
+    <p id="status" role="status" aria-live="polite">Загрузка настроек…</p>
   </main>
   <script src="reader-actions.js"></script>
   <script src="popup.js"></script>
