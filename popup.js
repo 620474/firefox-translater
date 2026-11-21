@@ -1,5 +1,7 @@
 const $ = id => document.getElementById(id);
 let form = null;
+let saveQueue = Promise.resolve();
+let pendingChanges = false;
 const providers = ["gemini", "deepseek", "openai"];
 function status(text, state = "info") {
   $("status").textContent = text;
@@ -48,9 +50,25 @@ function collect() {
   form.explanationPrompt = $("explanationPrompt").value.trim();
 }
 async function save(showFeedback = true) {
+  if (!form) throw Error("Настройки ещё не загружены");
   collect();
-  await msg("SETTINGS_SAVE", { settings: form });
-  if (showFeedback) status("Настройки сохранены", "ok");
+  // Snapshot values before awaiting: edits made during an in-flight save must not
+  // mutate the payload or be overwritten by an older completion.
+  const snapshot = JSON.parse(JSON.stringify(form));
+  const persist = async () => {
+    await msg("SETTINGS_SAVE", { settings: snapshot });
+    const stored = (await msg("SETTINGS_GET")).settings;
+    if (stored.translationPrompt !== snapshot.translationPrompt ||
+        stored.explanationPrompt !== snapshot.explanationPrompt) {
+      throw Error("Не удалось подтвердить сохранение промптов");
+    }
+    pendingChanges = $("translationPrompt").value.trim() !== stored.translationPrompt ||
+      $("explanationPrompt").value.trim() !== stored.explanationPrompt;
+    if (showFeedback && !pendingChanges) status("Промпты сохранены и проверены", "ok");
+  };
+  const operation = saveQueue.then(persist);
+  saveQueue = operation.catch(() => {});
+  await operation;
 }
 async function activeTab() {
   const tabs = await browser.tabs.query({ active: true, currentWindow: true });
@@ -80,6 +98,16 @@ $("provider").addEventListener("change", () => {
   render();
   status("Провайдер изменён — сохраните настройки");
 });
+for (const id of ["translationPrompt", "explanationPrompt"]) {
+  $(id).addEventListener("input", () => {
+    pendingChanges = true;
+    status("Промпт изменён — нажмите «Сохранить»", "info");
+  });
+  // Persist on leaving the field, including when the user navigates away from
+  // the keyboard without reaching the bottom of a long settings page.
+  $(id).addEventListener("change", () =>
+    clickTask("saveOnly", "Сохраняю промпт…", () => save()));
+}
 $("modelList").addEventListener("change", () => {
   if ($("modelList").value) {
     $("model").value = $("modelList").value;
@@ -119,6 +147,7 @@ $("resetPrompts").addEventListener("click", async () => {
     const defaults = await msg("PROMPTS_DEFAULTS");
     $("translationPrompt").value = defaults.translation;
     $("explanationPrompt").value = defaults.explanation;
-    status("Стандартные промпты восстановлены в форме. Нажмите «Сохранить».", "ok");
+    pendingChanges = true;
+    status("Стандартные промпты в форме — нажмите «Сохранить»");
   } catch (error) { status("Ошибка: " + error.message, "error"); }
 });
