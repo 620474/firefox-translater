@@ -184,8 +184,8 @@
   function cacheKey(signature, items) {
     const raw = JSON.stringify(items.map(item => [item.source, location.pathname]));
     let a = 2166136261, b = 2246822519;
-    // v5 invalidates older translation cache entries after the new technical-translation instructions.
-    const payload = "v5|" + signature + "|ru|" + location.origin + "|" + raw;
+    // v6 includes the editable translation instructions in the cache signature.
+    const payload = "v6|" + signature + "|ru|" + location.origin + "|" + raw;
     for (let i = 0; i < payload.length; i++) {
       a = Math.imul(a ^ payload.charCodeAt(i), 16777619);
       b = Math.imul(b ^ payload.charCodeAt(i), 3266489917);
