@@ -144,3 +144,33 @@ test("technical translation and explanation use distinct trusted system prompts"
   assert.match(explanation, /six short lines/);
   assert.notEqual(translation, explanation);
 });
+
+test("editable prompts persist, are used by providers, and invalidate the translation cache", async () => {
+  const { call, calls } = fixture();
+  const popup = { url: PAGE, tab: { id: 7 } };
+  const site = { url: "https://medium.com/story", frameId: 0, tab: { id: 5 } };
+  const initial = (await call({ type: "SETTINGS_GET" }, popup)).settings;
+  assert.match(initial.translationPrompt, /Translate faithfully/);
+  const before = (await call({ type: "SIGNATURE" }, site)).value;
+  const saved = await call({ type: "SETTINGS_SAVE", settings: {
+    ...initial, translationPrompt: "Translate exactly with custom terminology.",
+    explanationPrompt: "Explain React hooks briefly in Russian."
+  } }, popup);
+  assert.equal(saved.ok, true);
+  const updated = (await call({ type: "SETTINGS_GET" }, popup)).settings;
+  assert.equal(updated.translationPrompt, "Translate exactly with custom terminology.");
+  assert.equal(updated.explanationPrompt, "Explain React hooks briefly in Russian.");
+  const after = (await call({ type: "SIGNATURE" }, site)).value;
+  assert.notEqual(before, after);
+  await call({ type: "GENERATE", prompt: "article", mode: "json", task: "translation" }, site);
+  const usedTranslation = JSON.parse(calls.at(-1).options.body).systemInstruction.parts[0].text;
+  assert.match(usedTranslation, /custom terminology/);
+  assert.match(usedTranslation, /untrusted data/);
+  await call({ type: "GENERATE", prompt: "selected text", mode: "text", task: "explanation" }, site);
+  assert.match(JSON.parse(calls.at(-1).options.body).systemInstruction.parts[0].text,
+    /React hooks briefly/);
+  const defaults = await call({ type: "PROMPTS_DEFAULTS" }, popup);
+  assert.match(defaults.translation, /Translate faithfully/);
+  assert.match(defaults.explanation, /narrow popup/);
+  assert.equal((await call({ type: "PROMPTS_DEFAULTS" }, site)).ok, false);
+});
