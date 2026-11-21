@@ -382,7 +382,10 @@
       summaryHeading.textContent = "AI Article Reader — " + name;
       copyResultButton.disabled = true;
       saveResultButton.disabled = true;
-      const answer = (await call("GENERATE", { prompt, mode: "text", task: actionId === "translate" ? "translation" : "explanation" })).text;
+      const answer = (await call("GENERATE", {
+        prompt, mode: "text", task: actionId === "translate" ? "translation" :
+          actionId === "explain" ? "explanation" : "general"
+      })).text;
       activeResult = { kind: actionId, title: document.title, selection: context.selection, answer };
       await showSummary(answer);
       copyResultButton.disabled = false;
