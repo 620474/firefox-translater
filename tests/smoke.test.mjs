@@ -64,3 +64,19 @@ test("Android/E-Ink floating control has compact 30px visual size", async () => 
   assert.match(code, /font-size:17px/);
   assert.match(code, /event\.clientX - SIZE \/ 2/);
 });
+
+test("Settings actions provide feedback and return to the originating tab", async () => {
+  const html = await readFile("popup.html", "utf8");
+  const popup = await readFile("popup.js", "utf8");
+  const styles = await readFile("popup.css", "utf8");
+  const background = await readFile("background.js", "utf8");
+  assert.match(html, /id="save"[^>]+>Сохранить и вернуться/);
+  assert.match(html, /id="saveOnly"/);
+  assert.match(styles, /#status \{ position:fixed/);
+  assert.match(popup, /aria-busy/);
+  assert.match(popup, /SETTINGS_FINISH/);
+  assert.match(popup, /SETTINGS_TARGET/);
+  assert.match(background, /settingsOrigins\.set\(settingsTab\.id, sourceId\)/);
+  assert.match(background, /browser\.tabs\.update\(originId, \{ active: true \}\)/);
+  assert.match(background, /browser\.tabs\.remove\(sender\.tab\.id\)/);
+});
