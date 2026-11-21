@@ -88,8 +88,13 @@ test('EinkBro bundle translates, restores, explains, saves notes and opens setti
   commands[0]();await tick();
   const panel=shadows.find(s=>s.getElementById('apiKey'));
   assert.equal(panel.getElementById('apiKey').value,'PRIVATE_TEST_KEY');
-  panel.getElementById('model').value='changed-model';panel.getElementById('save').click();
+  panel.getElementById('model').value='changed-model';
+  assert.match(panel.getElementById('translationPrompt').value,/Translate faithfully/);
+  assert.match(panel.getElementById('explanationPrompt').value,/narrow popup/);
+  panel.getElementById('translationPrompt').value='My editable translation directions';
+  panel.getElementById('saveOnly').click();
   await settle(()=>values.settings.models.gemini==='changed-model');
+  assert.equal(values.settings.translationPrompt,'My editable translation directions');
   panel.getElementById('notesOpen').click();await tick();
   assert.ok(shadows.some(s=>s.getElementById('notes')?.textContent.includes('Объяснение')));
   assert.equal(w.browser,undefined);
