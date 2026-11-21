@@ -10,6 +10,7 @@ const DEFAULTS = {
   backendUrl: "",
   customPrompt: ""
 };
+const settingsOrigins = new Map(); // settings tab ID -> page tab ID
 let cacheQueue = Promise.resolve();
 function withCache(fn) {
   const run = cacheQueue.then(fn);
@@ -316,8 +317,39 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
       }
       case "OPEN_SETTINGS":
         if (!sender.tab || sender.frameId !== 0) throw Error("Недопустимый запрос");
-        await browser.tabs.create({ url: browser.runtime.getURL("popup.html"), active: true });
+        const sourceId = sender.tab.id;
+        const settingsTab = await browser.tabs.create({ url: browser.runtime.getURL("popup.html"), active: true });
+        settingsOrigins.set(settingsTab.id, sourceId);
         return { ok: true };
+      case "SETTINGS_FINISH": {
+        if (!isSettingsPage(sender)) throw Error("Недопустимый запрос");
+        if (sender.tab?.id != null) {
+          const originId = settingsOrigins.get(sender.tab.id);
+          if (originId != null) {
+            // Do not close settings unless the original tab is still present.
+            await browser.tabs.update(originId, { active: true });
+            await browser.tabs.remove(sender.tab.id);
+            settingsOrigins.delete(sender.tab.id);
+            return { ok: true };
+          }
+          // Manually opened settings tab: keep it open rather than closing an unknown tab.
+          return { ok: true, noOrigin: true };
+        }
+        return { ok: true, closePopup: true };
+      }
+      case "SETTINGS_TARGET": {
+        if (!isSettingsPage(sender)) throw Error("Недопустимый запрос");
+        const originId = sender.tab?.id != null ? settingsOrigins.get(sender.tab.id) : null;
+        if (originId != null) {
+          const tab = await browser.tabs.get(originId);
+          if (!/^https?:/.test(tab.url || "")) throw Error("Страница недоступна");
+          return { ok: true, tabId: originId };
+        }
+        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+        const tab = tabs.find(t => /^https?:/.test(t.url || ""));
+        if (!tab) throw Error("Не найдена вкладка статьи");
+        return { ok: true, tabId: tab.id };
+      }
       case "TAB_ACTION": {
         if (!sender.tab || sender.frameId !== 0) throw Error("Недопустимый запрос");
         if (!["TRANSLATE", "ORIGINAL", "SUMMARY", "SELECTION_ACTION"].includes(message.operation)) {
