@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { JSDOM } from "jsdom";
 
-const scripts = await Promise.all(["reader-core.js", "reader-actions.js", "content.js"].map(path => readFile(path, "utf8")));
+const scripts = await Promise.all(["reader-core.js", "reader-actions.js", "article-export.js", "content.js"].map(path => readFile(path, "utf8")));
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));
 function deferred() {
   let resolve;
@@ -147,4 +147,17 @@ test("floating menu restores original during a pending translation without repor
   await tick();
   assert.equal(shadow.querySelector('.toast').textContent, 'Оригинал восстановлен');
   assert.equal(launcher.classList.contains('busy'), false);
+});
+
+test("PDF preview exports translated article without Medium scripts or original hidden paragraphs", async t => {
+  const f=fixture('<article><h1>Article heading for export</h1><p>Relevant paragraph with enough words to translate and save in the article export.</p><script>window.bad=true</script></article>');
+  t.after(()=>f.dom.window.close());
+  assert.equal((await f.send({type:"TRANSLATE"})).ok,true);
+  const result=await f.send({type:"EXPORT_ARTICLE",format:"pdf"});
+  assert.equal(result.ok,true,result.error);
+  const frame=f.document.querySelector("#aiar-export-print iframe");
+  assert.ok(frame);
+  assert.match(frame.srcdoc,/Перевод:/);
+  assert.doesNotMatch(frame.srcdoc,/<script/);
+  assert.doesNotMatch(frame.srcdoc,/display: none/);
 });
