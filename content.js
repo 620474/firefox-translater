@@ -184,8 +184,8 @@
   function cacheKey(signature, items) {
     const raw = JSON.stringify(items.map(item => [item.source, location.pathname]));
     let a = 2166136261, b = 2246822519;
-    // v4 uses batch-local IDs; do not reuse old responses with article-global IDs.
-    const payload = "v4|" + signature + "|ru|" + location.origin + "|" + raw;
+    // v5 invalidates older translation cache entries after the new technical-translation instructions.
+    const payload = "v5|" + signature + "|ru|" + location.origin + "|" + raw;
     for (let i = 0; i < payload.length; i++) {
       a = Math.imul(a ^ payload.charCodeAt(i), 16777619);
       b = Math.imul(b ^ payload.charCodeAt(i), 3266489917);
@@ -221,7 +221,7 @@
       "Return a JSON object with exactly one item per input ID: " +
       '{"translations":[{"id":"0","text":"Русский перевод"}]}. No commentary. ' +
       "The texts to translate are: \n" + JSON.stringify({ paragraphs: payload });
-    const response = cached || (await call("GENERATE", { prompt, mode: "json" })).text;
+    const response = cached || (await call("GENERATE", { prompt, mode: "json", task: "translation" })).text;
     if (!current()) return;
     const parsed = core.parseTranslations(response, items.map(item => item.id));
     const ready = items.map(item => ({ item, ast: core.parseTagged(parsed.get(item.id), [...item.slots.keys()]) }));
@@ -382,7 +382,7 @@
       summaryHeading.textContent = "AI Article Reader — " + name;
       copyResultButton.disabled = true;
       saveResultButton.disabled = true;
-      const answer = (await call("GENERATE", { prompt, mode: "text" })).text;
+      const answer = (await call("GENERATE", { prompt, mode: "text", task: actionId === "translate" ? "translation" : "explanation" })).text;
       activeResult = { kind: actionId, title: document.title, selection: context.selection, answer };
       await showSummary(answer);
       copyResultButton.disabled = false;
