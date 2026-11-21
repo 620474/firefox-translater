@@ -80,3 +80,14 @@ test("Settings actions provide feedback and return to the originating tab", asyn
   assert.match(background, /browser\.tabs\.update\(originId, \{ active: true \}\)/);
   assert.match(background, /browser\.tabs\.remove\(sender\.tab\.id\)/);
 });
+
+test("Only one editable prompt is presented for explaining selected text", async () => {
+  const html = await readFile("popup.html", "utf8");
+  const floating = await readFile("floating.js", "utf8");
+  const page = await readFile("content.js", "utf8");
+  assert.match(html, /Промпт для выделенного текста/);
+  assert.doesNotMatch(html, /id="customPrompt"/);
+  assert.match(floating, /Объяснить выделенное/);
+  assert.doesNotMatch(floating, /Мой промпт \(для выделения\)/);
+  assert.match(page, /actionId === "explain" \? "explanation" : "general"/);
+});
