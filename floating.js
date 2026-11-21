@@ -90,8 +90,8 @@
   function positionToast() {
     toast.style.top = clamp(button.getBoundingClientRect().top - 54, 6,
       Math.max(6, innerHeight - 75)) + "px";
-    toast.style.left = prefs.side === "left" ? "70px" : "auto";
-    toast.style.right = prefs.side === "right" ? "70px" : "auto";
+    toast.style.left = prefs.side === "left" ? "54px" : "auto";
+    toast.style.right = prefs.side === "right" ? "54px" : "auto";
   }
   function place() {
     button.style.top = clamp(prefs.topRatio * innerHeight, EDGE,
