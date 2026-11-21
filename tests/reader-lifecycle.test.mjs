@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { JSDOM } from 'jsdom';
-const scripts = await Promise.all(['reader-core.js', 'reader-actions.js', 'content.js'].map(p => readFile(p, 'utf8')));
+const scripts = await Promise.all(['reader-core.js', 'reader-actions.js', 'article-export.js', 'content.js'].map(p => readFile(p, 'utf8')));
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));
 function gate() { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; }
 function fixture(html, before = async () => {}) {
