@@ -100,3 +100,12 @@ test("Touch dragging never leaves the launcher stuck in opaque hover state", asy
   assert.match(floating, /pointercancel", \(\) => \{ gesture = null; cancelHold\(\); button\.blur\(\);/);
   assert.match(floating, /button\.style\.opacity = String\(prefs\.opacity\)/);
 });
+
+test("Prompt edits are explicitly confirmed and persisted when a field changes", async () => {
+  const popup = await readFile("popup.js", "utf8");
+  assert.match(popup, /saveQueue = operation\.catch/);
+  assert.match(popup, /stored\.translationPrompt !== snapshot\.translationPrompt/);
+  assert.match(popup, /stored\.explanationPrompt !== snapshot\.explanationPrompt/);
+  assert.match(popup, /addEventListener\("change", \(\) =>/);
+  assert.match(popup, /Промпты сохранены и проверены/);
+});
