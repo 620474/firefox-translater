@@ -150,7 +150,7 @@ test("floating menu restores original during a pending translation without repor
 });
 
 test("PDF preview exports translated article without Medium scripts or original hidden paragraphs", async t => {
-  const f=fixture('<article><h1>Article heading for export</h1><p>Relevant paragraph with enough words to translate and save in the article export.</p><script>window.bad=true</script></article>');
+  const f=fixture('<article><h1>Article heading for export</h1><p onclick="window.bad=true">Relevant paragraph with enough words to translate and save in the article export.</p><script>window.bad=true</script></article>');
   t.after(()=>f.dom.window.close());
   assert.equal((await f.send({type:"TRANSLATE"})).ok,true);
   const result=await f.send({type:"EXPORT_ARTICLE",format:"pdf"});
@@ -159,5 +159,6 @@ test("PDF preview exports translated article without Medium scripts or original 
   assert.ok(frame);
   assert.match(frame.srcdoc,/Перевод:/);
   assert.doesNotMatch(frame.srcdoc,/<script/);
+  assert.doesNotMatch(frame.srcdoc,/onclick=/);
   assert.doesNotMatch(frame.srcdoc,/display: none/);
 });
