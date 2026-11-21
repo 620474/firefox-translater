@@ -69,7 +69,9 @@ function openPanel(name) {
       set:values=>guarded(()=>browser.storage.local.set(values)),
       remove:keys=>guarded(()=>browser.storage.local.remove(keys))
     }},
-    runtime:{...browser.runtime,sendMessage:message=>guarded(()=>listeners[0](message,
+    runtime:{...browser.runtime,sendMessage:message=>message.type==='SETTINGS_FINISH'
+      ? guarded(async()=>{host.remove();if(panelHost===host)panelHost=null;return {ok:true};})
+      : guarded(()=>listeners[0](message,
       {...pageSender(),url:browser.runtime.getURL(name+'.html')}))},
     tabs:{...browser.tabs,
       query:options=>guarded(()=>browser.tabs.query(options)),
