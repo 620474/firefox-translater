@@ -33,7 +33,6 @@ function render() {
   $("model").value = form.models[provider] || "";
   $("useBackend").checked = form.useBackend;
   $("backendUrl").value = form.backendUrl || "";
-  $("customPrompt").value = form.customPrompt || AIARActions.DEFAULT_CUSTOM;
   $("translationPrompt").value = form.translationPrompt || "";
   $("explanationPrompt").value = form.explanationPrompt || "";
   $("modelList").replaceChildren(new Option("Список моделей", ""));
@@ -45,7 +44,6 @@ function collect() {
   form.models[provider] = $("model").value.trim();
   form.useBackend = $("useBackend").checked;
   form.backendUrl = $("backendUrl").value.trim();
-  form.customPrompt = $("customPrompt").value.trim();
   form.translationPrompt = $("translationPrompt").value.trim();
   form.explanationPrompt = $("explanationPrompt").value.trim();
 }
@@ -121,7 +119,6 @@ $("resetPrompts").addEventListener("click", async () => {
     const defaults = await msg("PROMPTS_DEFAULTS");
     $("translationPrompt").value = defaults.translation;
     $("explanationPrompt").value = defaults.explanation;
-    $("customPrompt").value = AIARActions.DEFAULT_CUSTOM;
     status("Стандартные промпты восстановлены в форме. Нажмите «Сохранить».", "ok");
   } catch (error) { status("Ошибка: " + error.message, "error"); }
 });
