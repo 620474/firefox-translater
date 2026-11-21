@@ -4,7 +4,7 @@
   window.__aiarFloatingInitialized = true;
 
   const DEFAULTS = { side: "right", topRatio: 0.64, opacity: 0.28, eink: false };
-  const SIZE = 52, EDGE = 10, HOLD_MS = 520, DRAG_THRESHOLD = 11;
+  const SIZE = 36, EDGE = 10, HOLD_MS = 520, DRAG_THRESHOLD = 11;
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
   let prefs = { ...DEFAULTS }, busy = false, menuOpen = false;
   let gesture = null, holdTimer = null, toastTimer = null;
@@ -19,13 +19,13 @@
   const style = document.createElement("style");
   style.textContent = [
     ":host{all:initial} .launcher,.menu,.toast{box-sizing:border-box;font-family:Arial,sans-serif}",
-    ".launcher{position:fixed;top:64vh;right:10px;width:52px;height:52px;border-radius:50%;",
+    ".launcher{position:fixed;top:64vh;right:10px;width:36px;height:36px;border-radius:50%;",
     "border:2px solid #555;background:#fff;color:#111;box-shadow:0 1px 5px #5558;",
-    "font-size:28px;font-weight:700;line-height:1;display:grid;place-items:center;",
+    "font-size:20px;font-weight:700;line-height:1;display:grid;place-items:center;",
     "user-select:none;-webkit-user-select:none;touch-action:none;cursor:pointer;",
     "padding:0;pointer-events:auto;transition:opacity 120ms;-webkit-tap-highlight-color:transparent}",
-    ".launcher::after{content:'A';font:bold 12px Arial,sans-serif;position:absolute;",
-    "right:7px;top:6px;padding:0 2px;background:#fff;color:#111}",
+    ".launcher::after{content:'A';font:bold 9px Arial,sans-serif;position:absolute;",
+    "right:4px;top:3px;padding:0 1px;background:#fff;color:#111}",
     ".launcher:hover,.launcher:active,.launcher:focus-visible,.launcher.busy{opacity:.95!important}",
     ".menu{position:fixed;width:min(310px,calc(100vw - 24px));",
     "max-height:calc(100vh - 24px);overflow-y:auto;overscroll-behavior:contain;",
@@ -80,8 +80,8 @@
     menu.style.top = clamp(button.getBoundingClientRect().top - height / 2, 12,
       Math.max(12, innerHeight - height - 12)) + "px";
     if (innerWidth >= 390) {
-      menu.style.left = prefs.side === "left" ? "70px" : "auto";
-      menu.style.right = prefs.side === "right" ? "70px" : "auto";
+      menu.style.left = prefs.side === "left" ? "54px" : "auto";
+      menu.style.right = prefs.side === "right" ? "54px" : "auto";
     } else {
       menu.style.left = prefs.side === "left" ? "10px" : "auto";
       menu.style.right = prefs.side === "right" ? "10px" : "auto";
