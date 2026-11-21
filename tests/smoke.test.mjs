@@ -9,7 +9,8 @@ test("Manifest defines Firefox popup and background", async () => {
   assert.equal(data.browser_action.default_popup, "popup.html");
   assert.ok(data.content_scripts[0].js.includes("floating.js"));
   assert.ok(data.content_scripts[0].js.includes("reader-actions.js"));
-  for (const name of ["background.js", "content.js", "floating.js", "reader-actions.js", "popup.html", "popup.css", "popup.js", "notes.html", "notes.css", "notes.js"]) {
+  assert.ok(data.content_scripts[0].js.includes("article-export.js"));
+  for (const name of ["background.js", "content.js", "floating.js", "reader-actions.js", "article-export.js", "popup.html", "popup.css", "popup.js", "notes.html", "notes.css", "notes.js"]) {
     assert.ok((await readFile(name, "utf8")).length > 0);
   }
 });
@@ -108,4 +109,17 @@ test("Prompt edits are explicitly confirmed and persisted when a field changes",
   assert.match(popup, /stored\.explanationPrompt !== snapshot\.explanationPrompt/);
   assert.match(popup, /addEventListener\("change", \(\) =>/);
   assert.match(popup, /Промпты сохранены и проверены/);
+});
+
+test("Offline export is included and exposes printable PDF / saved HTML",async()=>{
+  const source=await readFile("article-export.js","utf8");
+  const float=await readFile("floating.js","utf8");
+  const content=await readFile("content.js","utf8");
+  const bg=await readFile("background.js","utf8");
+  assert.match(float,/Скачать HTML/);
+  assert.match(float,/Сохранить PDF/);
+  assert.match(content,/EXPORT_ARTICLE/);
+  assert.match(source,/iframe\.contentWindow\?\.print\(\)/);
+  assert.match(source,/article\.innerHTML/);
+  assert.match(bg,/case "EXPORT_IMAGE":/);
 });
