@@ -29,18 +29,15 @@
       <p class="hint">По умолчанию запросы идут напрямую к AI-провайдеру. NestJS необязателен.</p>
     </details>
     <details id="promptSettings">
-      <summary>Промпты AI — редактировать</summary>
+      <summary>Настроить промпты перевода и выделения</summary>
       <p class="hint">Эти инструкции используются при работе с AI. Защитные правила и формат JSON для переводов применяются отдельно и не редактируются.</p>
       <label for="translationPrompt">Перевод всей статьи (Technical Translation)</label>
       <textarea id="translationPrompt" rows="7" maxlength="4000" spellcheck="false"></textarea>
-      <label for="explanationPrompt">Объяснить выделение (Technical Explanation)</label>
+      <label for="explanationPrompt">Промпт для выделенного текста</label>
+      <p class="hint">Выделите текст в статье → удерживайте плавающую кнопку → «Объяснить выделенное». Именно этот промпт управляет ответом.</p>
       <textarea id="explanationPrompt" rows="7" maxlength="4000" spellcheck="false"></textarea>
       <button id="resetPrompts" type="button">Восстановить стандартные промпты</button>
     </details>
-    <label for="customPrompt">Мой промпт для выделенного текста</label>
-    <textarea id="customPrompt" rows="4" maxlength="1600"
-      placeholder="Например: объясни, как это применяется в React/TypeScript"></textarea>
-    <p class="hint">Используется действием «Мой промпт». Текст выделения и его контекст передаются отдельно.</p>
     <button id="save" type="button" class="primary">Сохранить и вернуться</button>
     <button id="saveOnly" type="button">Сохранить без закрытия</button>
     <button id="notesOpen" type="button">Мои заметки</button>
