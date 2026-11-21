@@ -30,6 +30,7 @@
       "js": [
         "reader-core.js",
         "reader-actions.js",
+        "article-export.js",
         "content.js",
         "floating.js"
       ],
