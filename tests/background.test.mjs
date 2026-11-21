@@ -129,3 +129,18 @@ test("custom prompt is editable only from an extension settings page", async () 
   assert.equal((await call({ type: "CUSTOM_PROMPT" }, site)).prompt,
     "Explain how this applies to TypeScript.");
 });
+
+test("technical translation and explanation use distinct trusted system prompts", async () => {
+  const { call, calls } = fixture();
+  const site = { url: "https://medium.com/story", frameId: 0, tab: { id: 5 } };
+  await call({ type: "GENERATE", prompt: "article content", mode: "json", task: "translation" }, site);
+  const translation = JSON.parse(calls.at(-1).options.body).systemInstruction.parts[0].text;
+  assert.match(translation, /Translate faithfully/);
+  assert.match(translation, /untrusted data/);
+  assert.match(translation, /code snippets/);
+  await call({ type: "GENERATE", prompt: "selection", mode: "text", task: "explanation" }, site);
+  const explanation = JSON.parse(calls.at(-1).options.body).systemInstruction.parts[0].text;
+  assert.match(explanation, /Суть:/);
+  assert.match(explanation, /six short lines/);
+  assert.notEqual(translation, explanation);
+});
