@@ -36,3 +36,9 @@ test("invalid actions and accidental empty highlights do not trigger models", ()
   assert.equal(actions.normalizeCustom(" ").length > 0, true);
   assert.equal(actions.normalizeCustom("x".repeat(2000)).length, 1600);
 });
+
+test("technical explain action is concise while translation does not add commentary", () => {
+  assert.match(actions.PRESETS.explain.task, /Суть:/);
+  assert.match(actions.PRESETS.explain.task, /six short/);
+  assert.match(actions.PRESETS.translate.task, /Do not add explanations/);
+});
