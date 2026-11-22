@@ -60,11 +60,18 @@ function snapshot(root,translations,base){
     copiedNodes[i].removeAttribute("srcset");
     copiedNodes[i].removeAttribute("sizes");
   }
-  // Each entry points to the hidden source, whose translated sibling is already in the clone.
+  // Preserve exactly the displayed translation. DOM markers survive a page-side
+  // reinjection even when the in-memory Map belongs to an older reader instance.
+  // Removing style during sanitization would otherwise unhide the English source.
   for(let i=0;i<originalNodes.length;i++){
-    if(!translations.has(originalNodes[i]))continue;
-    const source=copiedNodes[i];
-    if(source?.parentNode)source.remove();
+    const live=originalNodes[i],source=copiedNodes[i];
+    if(!source?.parentNode)continue;
+    const next=live.nextElementSibling;
+    const paired=next?.hasAttribute("data-aiar-translation") &&
+      next.localName===live.localName &&
+      next.previousElementSibling===live;
+    const hidden=live.style?.getPropertyValue("display")==="none";
+    if(translations.has(live) || (paired && hidden)) source.remove();
   }
   for(const el of [...clone.querySelectorAll("[data-aiar-translation]")])el.removeAttribute("data-aiar-translation");
   sanitize(clone,base);
