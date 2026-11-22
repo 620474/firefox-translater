@@ -38,8 +38,39 @@ jobs:
         run: npm run build:api
 
       - name: Semantic Release
+        id: publish
+        continue-on-error: true
         run: npm run release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
           AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+
+      # semantic-release can sign/build assets and create its git tag, then fail
+      # when GitHub rejects refs/notes/semantic-release-*. Keep the signed XPI
+      # deliverable recoverable rather than leaving an unreleasable version tag.
+      - name: Recover signed release after publishing failure
+        if: steps.publish.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="$(git tag --points-at HEAD | grep -E '^v[0-9]+\\.[0-9]+\\.[0-9]+ | sort -V | tail -n 1)"
+          if [ -z "$tag" ]; then
+            echo "Release failed without a version tag; cannot recover." >&2
+            exit 1
+          fi
+          shopt -s nullglob
+          assets=(dist/*.xpi dist/*.user.js dist/*.koplugin.zip dist/firefox-translator-v*.zip)
+          if [ "${#assets[@]}" -lt 4 ]; then
+            echo "Signed release assets are incomplete; cannot recover." >&2
+            exit 1
+          fi
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "${assets[@]}" --clobber
+          else
+            gh release create "$tag" "${assets[@]}" --verify-tag \
+              --title "$tag" \
+              --notes "AI Article Reader $tag. Signed Firefox extension and offline article export (PDF and HTML)."
+          fi
+          echo "Recovered signed release $tag"
