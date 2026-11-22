@@ -151,3 +151,22 @@ test("code-only and mixed code selections cannot be translated, but can be expla
   assert.match(again.error, /Код не переводим/);
   dom.window.close();
 });
+
+
+test("offline snapshot keeps Russian once, including after a stale translation map", async () => {
+  const {document, getHandler, dom} = browserFixture(
+    '<main><article><p id="original">This is a <strong>powerful</strong> model.</p>' +
+    '<pre><code>const answer = 42;</code></pre></article></main>'
+  );
+  assert.equal((await getHandler()({type:"TRANSLATE"})).ok,true);
+  const root=document.querySelector("article");
+  const exporter=dom.window.AIARExport;
+  for(const map of [new Map(), new Map([[document.getElementById("original"), {}]])]){
+    const snap=exporter.snapshot(root,map,dom.window.location.href);
+    assert.equal(snap.querySelectorAll("p").length,1);
+    assert.equal(snap.querySelector("p").textContent,"Это мощная модель.");
+    assert.ok(!snap.textContent.includes("This is a"));
+    assert.match(snap.textContent,/const answer = 42;/);
+  }
+  dom.window.close();
+});
